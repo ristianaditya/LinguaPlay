@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "fixture": "safe .NET executable, not a real game",
+  "modes": [
+    "translated",
+    "original",
+    "translated"
+  ],
+  "observed_by_child": [
+    "Halo",
+    "Hello",
+    "Halo"
+  ],
+  "user_game_files_modified": false
+}

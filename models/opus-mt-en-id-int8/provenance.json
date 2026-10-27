@@ -1,0 +1,16 @@
+{
+  "repository": "Helsinki-NLP/opus-mt-en-id",
+  "revision": "6e4c52d61a6b16fe3509b0267cbfec65011b860b",
+  "conversion": "CTranslate2 4.8.4 INT8; Transformers 4.57.6; torch 2.14.1+cpu; SentencePiece 0.2.2 conversion / 0.2.1 runtime",
+  "attribution": "Helsinki-NLP Research Group, University of Helsinki; OPUS-MT English to Indonesian",
+  "license": "Apache-2.0",
+  "files": {
+    "config.json": "72901fbd8abd89fb5cf4a388f26fc681f5c4c58a1e1a88b30b879f107270e7ee",
+    "LICENSE.txt": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+    "model.bin": "2b9dc8ce6b00b40a9f1b08457fe0c8abe83b116eb88be5049d26242a41624a1b",
+    "ORIGINAL_MODEL_CARD.md": "b22576651af4091e2b7460f1a0a59b96ce24e2bbfeb4886941e7805d51db4a15",
+    "shared_vocabulary.json": "3dfd710f00b1ffcf67c3301c53cd6104d7ad96aa0b2dbb923db58bac71751ca4",
+    "source.spm": "e88300911c2c573ec5526777a1e84bae698d20925b82dcef9c7248bb0e537ed0",
+    "target.spm": "2a8fefe71c7f26cb0c6aa1b9f0cc0f8d18006b20fe41c547af7f25b9c8333465"
+  }
+}

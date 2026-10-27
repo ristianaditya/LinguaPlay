@@ -1,0 +1,59 @@
+{
+  "model": "Helsinki-NLP/opus-mt-en-id",
+  "runtime": "CTranslate2 INT8 CPU, 2 threads",
+  "network_disabled_during_test": true,
+  "rows": [
+    {
+      "source": "Stay here, {player_name}!",
+      "translation": "Tetap di sini, {player_name}!",
+      "seconds": 1.082
+    },
+    {
+      "source": "<i>We need to find another way.</i>",
+      "translation": "<i>Kita harus cari cara lain.</i>",
+      "seconds": 0.037
+    },
+    {
+      "source": "The treasure is somewhere inside this cave.",
+      "translation": "Harta karun itu ada di suatu tempat di dalam gua ini.",
+      "seconds": 0.076
+    },
+    {
+      "source": "Continue",
+      "translation": "Lanjutkan",
+      "seconds": 0.017
+    },
+    {
+      "source": "New game",
+      "translation": "Permainan baru",
+      "seconds": 0.02
+    },
+    {
+      "source": "Settings",
+      "translation": "Pengaturan",
+      "seconds": 0.021
+    },
+    {
+      "source": "Find the exit",
+      "translation": "Cari jalan keluar",
+      "seconds": 0.024
+    },
+    {
+      "source": "You have {count} coins.",
+      "translation": "Anda memiliki {count} koin.",
+      "seconds": 0.034
+    }
+  ],
+  "working_set_before_mib": 27.5,
+  "working_set_after_mib": 130.5,
+  "real_patch_roundtrip": "passed: 2 files, 8 entries, byte-identical restore",
+  "status": "passed",
+  "saved_provider_loaded": true,
+  "windows_ocr_to_local_translation": {
+    "ocr": "The treasure is inside this cave.",
+    "translation": "Harta karunnya ada di dalam gua ini.",
+    "total_seconds": 0.312
+  },
+  "regression_tests": "40 passed",
+  "portable_check": "passed: native inference with clean PATH and different working directory"
+}

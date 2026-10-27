@@ -1,0 +1,11 @@
+portable/
+portable-0.6.1/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.build/
+build/
+dist/
+*.spec
+work/

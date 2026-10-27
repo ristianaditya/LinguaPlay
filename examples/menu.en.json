@@ -1,0 +1,10 @@
+{
+  "locale": "en",
+  "strings": {
+    "menu.continue": "Continue",
+    "menu.new_game": "New game",
+    "menu.settings": "Settings",
+    "objective.find_exit": "Find the exit",
+    "inventory.coins": "You have {count} coins."
+  }
+}

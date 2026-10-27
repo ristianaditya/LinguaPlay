@@ -1,0 +1,61 @@
+{
+  "model": "linguaplay-local",
+  "endpoint": "http://127.0.0.1:11434/v1",
+  "source": "en",
+  "target": "id",
+  "rows": [
+    {
+      "source": "Stay here, {player_name}!",
+      "translation": "Tinggal di sini, {player_name}!",
+      "seconds": 9.22
+    },
+    {
+      "source": "<i>We need to find another way.</i>",
+      "translation": "<i>Kita perlu mencari cara lain.</i>",
+      "seconds": 16.67
+    },
+    {
+      "source": "The treasure is somewhere inside this cave.",
+      "translation": "Perhias ada di dalam gua ini.",
+      "seconds": 4.66
+    },
+    {
+      "source": "Continue",
+      "translation": "Teruskan",
+      "seconds": 1.47
+    },
+    {
+      "source": "New game",
+      "translation": "Mulai permainan baru",
+      "seconds": 2.36
+    },
+    {
+      "source": "Settings",
+      "translation": "Pengaturan",
+      "seconds": 1.93
+    },
+    {
+      "source": "Find the exit",
+      "translation": "Cari pintu keluar",
+      "seconds": 2.54
+    },
+    {
+      "source": "You have {count} coins.",
+      "translation": "Anda memiliki {count} koin.",
+      "seconds": 6.4
+    }
+  ],
+  "status": "passed",
+  "real_model_patch_roundtrip": "passed: 2 files, 8 entries; original bytes restored",
+  "base_model": "qwen2.5:7b",
+  "runtime_version": "0.40.11",
+  "cold_simple_generation_seconds": 8.57,
+  "threads": 4,
+  "context": 2048,
+  "launcher_restart_test": "passed",
+  "regression_tests": "34 passed",
+  "quality_note": "Token integrity passed. Translation wording still requires human review. Tests ran without a game.",
+  "saved_ui_configuration_loaded": true,
+  "cold_app_request_seconds": 19.96,
+  "cold_app_translation": "Halo Nathan. Tersisa di sini!"
+}

@@ -1,0 +1,14 @@
+{
+  "version": "0.4.0",
+  "frozen": true,
+  "ocr_languages": [
+    "en-US"
+  ],
+  "ocr_fixture": "Hello Nathan. Stay here!",
+  "example_files": 2,
+  "desktop_pages": 4,
+  "overlay_panel_frameless": true,
+  "overlay_panel_tabs": 2,
+  "overlay_settings_live_preview": true,
+  "status": "ok"
+}
