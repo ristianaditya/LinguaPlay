@@ -4,10 +4,17 @@ from threading import Lock
 import re
 import sys
 
-from .translation import TranslationError
+from .translation import TranslationError, TOKENS
 
 MODEL_ID = 'opus-mt-en-id-int8-v1'
 MARKER = re.compile(r'(__LPT[0-9a-f]{10}X\d+__)')
+
+
+def clean_hallucinated_markup(text):
+    # Segments never contain tokens (they are masked before inference), so any tag,
+    # placeholder or line break in the output was invented by the subtitle-trained model,
+    # e.g. ASS styling such as {\fnCandara\fs60}.
+    return ' '.join(TOKENS.sub(' ',text or '').split())
 
 
 def translate_segments(text, translate):
@@ -19,7 +26,7 @@ def translate_segments(text, translate):
             continue
         leading=part[:len(part)-len(part.lstrip())]
         trailing=part[len(part.rstrip()):]
-        translated=translate(part.strip())
+        translated=clean_hallucinated_markup(translate(part.strip()))
         if not translated or not translated.strip():
             raise TranslationError('Model lokal mengembalikan teks kosong.')
         parts[index]=leading+translated.strip()+trailing
