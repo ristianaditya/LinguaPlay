@@ -2,6 +2,7 @@ from PySide6.QtCore import Qt,Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (QLabel,QPushButton,QFrame,QVBoxLayout,QTableWidget,
     QHeaderView,QAbstractItemView,QComboBox,QListWidget)
+from PySide6.QtWidgets import QGraphicsDropShadowEffect
 
 LANGUAGES={'en':'Inggris','id':'Indonesia','ja':'Jepang','ko':'Korea','zh':'Mandarin','de':'Jerman','fr':'Prancis','es':'Spanyol','pt':'Portugis','ru':'Rusia','ar':'Arab','th':'Thai'}
 
@@ -37,6 +38,7 @@ def button(text,callback,primary=False):
 
 def card(title=None):
     frame=QFrame(); frame.setObjectName('card')
+    shadow=QGraphicsDropShadowEffect(frame); shadow.setBlurRadius(24); shadow.setOffset(0,8); shadow.setColor(QColor(0,0,0,105)); frame.setGraphicsEffect(shadow)
     layout=QVBoxLayout(frame); layout.setContentsMargins(16,14,16,14); layout.setSpacing(10)
     if title: layout.addWidget(label(title,'cardTitle'))
     return frame,layout
