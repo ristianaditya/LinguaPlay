@@ -39,6 +39,24 @@ class OverlaySettingsTests(unittest.TestCase):
         self.assertTrue(bounds.contains(placed)); self.assertFalse(placed.intersects(region))
         with self.assertRaises(ValueError): place_overlay(bounds,bounds,OverlayAppearance())
 
+    def test_capture_excluded_overlay_can_sit_on_bottom_edge_over_ocr_area(self):
+        from PySide6.QtCore import Qt
+        overlay=SubtitleOverlay(FakeScreen(),QRect(200,570,880,130))
+        overlay.capture_excluded=True
+        overlay.apply_appearance(OverlayAppearance(position_y=100))
+        self.assertEqual(overlay.geometry().bottom(),719)
+        self.assertTrue(overlay.label.alignment() & Qt.AlignmentFlag.AlignBottom)
+        overlay.close()
+
+    def test_region_selector_reuses_previous_area_with_enter(self):
+        from PySide6.QtCore import Qt
+        from PySide6.QtTest import QTest
+        from linguaplay.ocr import RegionSelector
+        selector=RegionSelector(FakeScreen(),QRect(100,500,600,120)); picked=[]
+        selector.selected.connect(picked.append); selector.show()
+        QTest.keyClick(selector,Qt.Key.Key_Return); self.app.processEvents()
+        self.assertEqual(picked,[QRect(100,500,600,120)])
+
     def test_settings_persist_and_corrupt_input_falls_back(self):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/'appearance.json'

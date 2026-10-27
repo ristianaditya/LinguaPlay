@@ -34,6 +34,11 @@ class LocalTranslationTests(unittest.TestCase):
         self.assertEqual(result,'<i>Tetap di sini, {name}!</i>\nAnda memiliki {count} koin.')
         self.assertEqual(calls,['Stay here,','You have','coins.'])
 
+    def test_hallucinated_subtitle_styling_is_removed_from_model_output(self):
+        from linguaplay.local_mt import clean_hallucinated_markup
+        self.assertEqual(translate_segments("Don't I wish.",lambda text:'{\\fnCandara\\fs60\\b1}Jangan berharap.'),'Jangan berharap.')
+        self.assertEqual(clean_hallucinated_markup('Halo <i>kamu</i>\nlagi'),'Halo kamu lagi')
+
     def test_local_provider_rejects_unsupported_language_before_network(self):
         config=ProviderConfig(kind='OPUS-MT lokal',source='ja',target='id')
         with patch('urllib.request.build_opener',side_effect=AssertionError('network forbidden')):

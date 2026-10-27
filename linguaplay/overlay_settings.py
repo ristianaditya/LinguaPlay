@@ -4,41 +4,52 @@ from pathlib import Path
 import json
 import re
 import sys
-from PySide6.QtCore import Qt, QRect, QPoint, Signal
-from PySide6.QtGui import QFont, QShortcut, QKeySequence, QGuiApplication, QPalette, QColor
+from datetime import datetime
+from PySide6.QtCore import Qt, QRect, QPoint, Signal, QSize, QTimer, QPropertyAnimation, QEasingCurve
+from PySide6.QtGui import QFont, QShortcut, QKeySequence, QGuiApplication, QPalette, QColor, QPainter, QRadialGradient
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QLabel, QFormLayout, QSpinBox,
     QSlider, QComboBox, QPushButton, QFontComboBox, QFrame, QHBoxLayout, QTabWidget, QWidget, QAbstractSpinBox)
+from .icons import icon as make_icon, pixmap as icon_pixmap
+
+def icon_label(name,color,size):
+    result=QLabel(); result.setPixmap(icon_pixmap(name,color,size)); result.setFixedSize(size+2,size+2); return result
+
 
 PANEL_STYLE='''
-QDialog#overlayPanel { background: transparent; color: #e6eeec; font-family: "Segoe UI"; font-size: 13px; }
-QDialog#overlayPanel QFrame#overlayShell { background: #17191a; border: 1px solid #373c3c; border-radius: 12px; }
-QDialog#overlayPanel QWidget { color: #e6eeec; background: transparent; }
+QDialog#overlayPanel { background: transparent; color: #eef1ee; font-family: "Segoe UI"; font-size: 13px; }
+QDialog#overlayPanel QFrame#overlayShell { background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 rgba(36,39,41,246),stop:1 rgba(24,26,28,246)); border: 1px solid rgba(255,255,255,0.11); border-radius: 22px; }
+QDialog#overlayPanel QWidget { color: #eef1ee; background: transparent; }
 QDialog#overlayPanel QLabel { border: none; padding: 0; background: transparent; }
-QDialog#overlayPanel QLabel#panelBrand { font-size: 16px; font-weight: 700; }
-QDialog#overlayPanel QLabel#brandMark { background: #d6fb51; color: #1b230b; border-radius: 6px; font-size: 12px; font-weight: 700; }
-QDialog#overlayPanel QLabel#panelHint { color: #a9b1ab; font-size: 12px; }
-QDialog#overlayPanel QLabel#panelStatus { color: #d6eb9d; font-size: 12px; }
-QDialog#overlayPanel QLabel#keyBadge { color: #bfd3ce; background: #2b302c; border-radius: 4px; padding: 4px 6px; font-size: 11px; }
-QDialog#overlayPanel QComboBox, QDialog#overlayPanel QSpinBox { background: #252a28; color: #eff8f5; border: 1px solid #48514a; border-radius: 5px; padding: 5px 8px; min-height: 20px; }
+QDialog#overlayPanel QLabel#panelBrand { font-size: 15px; font-weight: 700; }
+QDialog#overlayPanel QLabel#panelEyebrow { color: #8d958f; font-size: 10px; font-weight: 800; letter-spacing: 1.4px; }
+QDialog#overlayPanel QLabel#panelRowTitle { color: #e9ede9; font-size: 13px; }
+QDialog#overlayPanel QLabel#panelHint { color: #98a09b; font-size: 12px; }
+QDialog#overlayPanel QLabel#panelStatus { color: #d6fb51; font-size: 11px; font-weight: 700; background: rgba(214,251,81,0.10); border: 1px solid rgba(214,251,81,0.22); border-radius: 10px; padding: 3px 10px; }
+QDialog#overlayPanel QLabel#keyBadge { color: #cfd6d1; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.08); border-radius: 7px; padding: 3px 8px; font-size: 11px; font-weight: 600; }
+QDialog#overlayPanel QLabel#valueBadge { color: #f2f5ef; background: rgba(255,255,255,0.08); border-radius: 8px; padding: 4px 0; font-size: 12px; font-weight: 700; }
+QDialog#overlayPanel QFrame#panelGroup { background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; }
+QDialog#overlayPanel QComboBox, QDialog#overlayPanel QSpinBox { background: rgba(255,255,255,0.07); color: #f2f5ef; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 5px 9px; min-height: 20px; }
+QDialog#overlayPanel QComboBox:hover, QDialog#overlayPanel QSpinBox:hover { border-color: rgba(255,255,255,0.18); }
 QDialog#overlayPanel QComboBox:focus, QDialog#overlayPanel QSpinBox:focus { border: 1px solid #d6fb51; }
-QDialog#overlayPanel QComboBox QAbstractItemView { background: #252a28; color: #eff8f5; selection-background-color: #414e30; selection-color: white; border: 1px solid #5d6b52; }
+QDialog#overlayPanel QComboBox QAbstractItemView { background: #1f2223; color: #f2f5ef; selection-background-color: rgba(214,251,81,0.2); selection-color: white; border: 1px solid rgba(255,255,255,0.1); outline: none; }
 QDialog#overlayPanel QComboBox::drop-down { border: none; width: 22px; }
-QDialog#overlayPanel QSlider { background: #17191a; border: none; min-height: 30px; }
-QDialog#overlayPanel QSlider::groove:horizontal { background: #454c46; height: 4px; border-radius: 2px; }
-QDialog#overlayPanel QSlider::sub-page:horizontal { background: #d6fb51; border-radius: 2px; }
-QDialog#overlayPanel QSlider::handle:horizontal { background: #efffc2; border: none; width: 16px; margin: -6px 0; border-radius: 5px; }
-QDialog#overlayPanel QSlider:focus::handle:horizontal { background: white; border: 1px solid #d6fb51; }
-QDialog#overlayPanel QTabWidget::pane { border: none; padding-top: 14px; }
-QDialog#overlayPanel QTabBar::tab { color: #a9b1ab; background: transparent; border: none; border-bottom: 2px solid #343c34; padding: 10px 20px; min-width: 80px; }
-QDialog#overlayPanel QTabBar::tab:selected { color: #f4f9e9; border-bottom: 2px solid #d6fb51; }
-QDialog#overlayPanel QTabBar::tab:focus { background: #30372b; }
-QDialog#overlayPanel QPushButton { color: #d9ede6; background: #2b312b; border: 1px solid #4c5846; border-radius: 5px; padding: 7px 12px; min-height: 20px; }
-QDialog#overlayPanel QPushButton:hover { background: #3b4633; }
-QDialog#overlayPanel QPushButton:focus { border: 2px solid #d6fb51; }
-QDialog#overlayPanel QPushButton#panelClose { border: none; background: transparent; font-size: 20px; padding: 0; min-height: 28px; }
-QDialog#overlayPanel QPushButton#panelClose:hover { background: #414b38; }
-QDialog#overlayPanel QPushButton#panelDone { background: #d6fb51; color: #1b230b; border: none; font-weight: 600; }
-QDialog#overlayPanel QPushButton#panelDone:hover { background: #e5ff8d; }
+QDialog#overlayPanel QSlider { background: transparent; border: none; min-height: 30px; }
+QDialog#overlayPanel QSlider::groove:horizontal { background: rgba(255,255,255,0.10); height: 6px; border-radius: 3px; }
+QDialog#overlayPanel QSlider::sub-page:horizontal { background: #d6fb51; border-radius: 3px; }
+QDialog#overlayPanel QSlider::handle:horizontal { background: #ffffff; border: none; width: 12px; height: 22px; margin: -8px 0; border-radius: 6px; }
+QDialog#overlayPanel QSlider::handle:horizontal:hover { background: #f4ffd0; }
+QDialog#overlayPanel QTabWidget::pane { border: none; padding-top: 12px; }
+QDialog#overlayPanel QTabBar { qproperty-drawBase: 0; }
+QDialog#overlayPanel QTabBar::tab { color: #a9b1ac; background: rgba(255,255,255,0.05); border: none; padding: 7px 18px; margin-right: 6px; border-radius: 14px; min-width: 70px; font-weight: 600; }
+QDialog#overlayPanel QTabBar::tab:hover { background: rgba(255,255,255,0.10); color: #f2f5ef; }
+QDialog#overlayPanel QTabBar::tab:selected { color: #151b07; background: #d6fb51; }
+QDialog#overlayPanel QPushButton { color: #e9eee9; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.09); border-radius: 16px; padding: 7px 14px; min-height: 20px; font-weight: 600; }
+QDialog#overlayPanel QPushButton:hover { background: rgba(255,255,255,0.12); }
+QDialog#overlayPanel QPushButton:focus { border: 1px solid #d6fb51; }
+QDialog#overlayPanel QPushButton#panelClose { border: none; background: transparent; padding: 0; min-height: 28px; border-radius: 10px; }
+QDialog#overlayPanel QPushButton#panelClose:hover { background: rgba(255,255,255,0.10); }
+QDialog#overlayPanel QPushButton#panelDone { background: #d6fb51; color: #151b07; border: none; font-weight: 700; border-radius: 17px; padding: 9px 14px; }
+QDialog#overlayPanel QPushButton#panelDone:hover { background: #e3ff7a; }
 '''
 
 class PanelDragHandle(QFrame):
@@ -121,64 +132,73 @@ def place_overlay(bounds,region,appearance):
 class OverlaySettingsPanel(QDialog):
     changed=Signal(object)
 
-    def __init__(self,appearance,ocr_active=False):
+    def __init__(self,appearance,ocr_active=False,hotkey='Ctrl+Alt+O'):
         super().__init__(None,Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.FramelessWindowHint)
-        self.setObjectName('overlayPanel'); self.setWindowTitle('LinguaPlay â€¢ Tampilan overlay'); self.setFixedWidth(364)
+        self.setObjectName('overlayPanel'); self.setWindowTitle('LinguaPlay • Tampilan overlay'); self.setFixedWidth(384)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose,False)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         palette=self.palette()
-        for role in (QPalette.ColorRole.Window,QPalette.ColorRole.Button): palette.setColor(role,QColor('#17191a'))
-        for role in (QPalette.ColorRole.WindowText,QPalette.ColorRole.Text,QPalette.ColorRole.ButtonText): palette.setColor(role,QColor('#e6eeec'))
-        palette.setColor(QPalette.ColorRole.Base,QColor('#252a28')); palette.setColor(QPalette.ColorRole.Highlight,QColor('#414e30'))
+        for role in (QPalette.ColorRole.Window,QPalette.ColorRole.Button): palette.setColor(role,QColor('#1c1f20'))
+        for role in (QPalette.ColorRole.WindowText,QPalette.ColorRole.Text,QPalette.ColorRole.ButtonText): palette.setColor(role,QColor('#eef1ee'))
+        palette.setColor(QPalette.ColorRole.Base,QColor('#26292a')); palette.setColor(QPalette.ColorRole.Highlight,QColor('#414e30'))
         palette.setColor(QPalette.ColorRole.HighlightedText,QColor('#ffffff')); self.setPalette(palette)
         assets=Path(getattr(sys,'_MEIPASS',Path(__file__).resolve().parent.parent))/'assets'
-        arrow_style=f'''
+        arrow_style=f"""
         QDialog#overlayPanel QComboBox::down-arrow {{ image: url("{(assets/'chevron-down.svg').as_posix()}"); width: 10px; height: 10px; }}
         QDialog#overlayPanel QSpinBox::up-arrow {{ image: url("{(assets/'control-plus.svg').as_posix()}"); width: 9px; height: 9px; }}
         QDialog#overlayPanel QSpinBox::down-arrow {{ image: url("{(assets/'control-minus.svg').as_posix()}"); width: 9px; height: 9px; }}
-        QDialog#overlayPanel QSpinBox::up-button {{ background: #2b4338; border-left: 1px solid #48514a; border-bottom: 1px solid #48514a; width: 20px; }}
-        QDialog#overlayPanel QSpinBox::down-button {{ background: #2b4338; border-left: 1px solid #48514a; width: 20px; }}
-        '''
+        QDialog#overlayPanel QSpinBox::up-button {{ background: rgba(214,251,81,0.14); border-left: 1px solid rgba(255,255,255,0.08); border-top-right-radius: 9px; width: 20px; }}
+        QDialog#overlayPanel QSpinBox::down-button {{ background: rgba(214,251,81,0.14); border-left: 1px solid rgba(255,255,255,0.08); border-bottom-right-radius: 9px; width: 20px; }}
+        """
         self.setStyleSheet(PANEL_STYLE+arrow_style)
         outer=QVBoxLayout(self); outer.setContentsMargins(0,0,0,0)
         shell=QFrame(); shell.setObjectName('overlayShell'); outer.addWidget(shell)
-        layout=QVBoxLayout(shell); layout.setContentsMargins(18,16,18,16); layout.setSpacing(12)
-        self.drag_handle=PanelDragHandle(); header=QHBoxLayout(self.drag_handle); header.setContentsMargins(0,0,0,0); header.setSpacing(9)
-        mark=QLabel('LP'); mark.setObjectName('brandMark'); mark.setAlignment(Qt.AlignmentFlag.AlignCenter); mark.setFixedSize(28,28)
-        brand=QLabel('LinguaPlay'); brand.setObjectName('panelBrand')
-        badge=QLabel('Ctrl+Alt+O'); badge.setObjectName('keyBadge')
+        layout=QVBoxLayout(shell); layout.setContentsMargins(18,16,18,18); layout.setSpacing(12)
+        self.drag_handle=PanelDragHandle(); header=QHBoxLayout(self.drag_handle); header.setContentsMargins(0,0,0,0); header.setSpacing(10)
+        mark=icon_label('sliders','#eef1ee',18)
+        brand=QLabel('Tampilan overlay'); brand.setObjectName('panelBrand')
+        badge=QLabel(hotkey); badge.setObjectName('keyBadge')
         for child in (mark,brand,badge): child.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         header.addWidget(mark); header.addWidget(brand,1); header.addWidget(badge)
-        self.close_button=QPushButton('Ã—'); self.close_button.setObjectName('panelClose'); self.close_button.setFixedSize(28,28)
+        self.close_button=QPushButton(); self.close_button.setObjectName('panelClose'); self.close_button.setFixedSize(28,28)
+        self.close_button.setIcon(make_icon('close','#c9d0cc',16)); self.close_button.setIconSize(QSize(16,16)); self.close_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.close_button.setAccessibleName('Tutup pengaturan overlay'); self.close_button.setToolTip('Tutup panel (Esc)'); self.close_button.setAutoDefault(False)
         self.close_button.clicked.connect(self.reject); header.addWidget(self.close_button); layout.addWidget(self.drag_handle)
-        self.status_label=QLabel('OCR dijeda sementara' if ocr_active else 'Pratinjau tampilan'); self.status_label.setObjectName('panelStatus'); layout.addWidget(self.status_label)
-        self.tabs=QTabWidget(); self.tabs.setDocumentMode(True); self.tabs.tabBar().setDrawBase(False)
+        status_row=QHBoxLayout(); self.status_label=QLabel('●  OCR dijeda sementara' if ocr_active else '●  Pratinjau langsung'); self.status_label.setObjectName('panelStatus')
+        status_row.addWidget(self.status_label); status_row.addStretch(); layout.addLayout(status_row)
+        self.tabs=QTabWidget(); self.tabs.setDocumentMode(True); self.tabs.tabBar().setDrawBase(False); self.tabs.tabBar().setCursor(Qt.CursorShape.PointingHandCursor)
         text_page=QWidget(); position_page=QWidget()
-        self.tabs.addTab(text_page,'Subtitle'); self.tabs.addTab(position_page,'Posisi')
-        form=QFormLayout(text_page); form.setContentsMargins(0,0,0,0); form.setVerticalSpacing(12); form.setHorizontalSpacing(14)
-        position_form=QFormLayout(position_page); position_form.setContentsMargins(0,0,0,0); position_form.setVerticalSpacing(12); position_form.setHorizontalSpacing(14)
-        for current in (form,position_form): current.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-        self.font_family=QFontComboBox(); self.font_family.setCurrentFont(QFont(appearance.font_family)); form.addRow('Font',self.font_family)
-        self.font_size=QSpinBox(); self.font_size.setRange(14,64); self.font_size.setSuffix(' px'); self.font_size.setValue(appearance.font_size); form.addRow('Ukuran teks',self.font_size)
+        self.tabs.addTab(text_page,make_icon('type','#a9b1ac',14),'Subtitle'); self.tabs.addTab(position_page,make_icon('move-x','#a9b1ac',14),'Posisi')
+        text_layout=QVBoxLayout(text_page); text_layout.setContentsMargins(0,0,0,0); text_layout.setSpacing(10)
+        position_layout=QVBoxLayout(position_page); position_layout.setContentsMargins(0,0,0,0); position_layout.setSpacing(10)
+        self.font_family=QFontComboBox(); self.font_family.setCurrentFont(QFont(appearance.font_family)); self.font_family.setMaximumWidth(176)
+        self.font_size=QSpinBox(); self.font_size.setRange(14,64); self.font_size.setSuffix(' px'); self.font_size.setValue(appearance.font_size); self.font_size.setFixedWidth(108)
         self.text_color=QComboBox(); self.background_color=QComboBox()
         self.fill_colors(self.text_color,[('Putih','#ffffff'),('Kuning','#ffdd55'),('Biru muda','#82cfff'),('Hijau muda','#a9f5ba'),('Hitam','#000000')],appearance.text_color)
         self.fill_colors(self.background_color,[('Biru gelap','#0c1726'),('Hitam','#000000'),('Abu gelap','#303030'),('Putih','#ffffff')],appearance.background_color)
-        form.addRow('Warna teks',self.text_color); form.addRow('Warna latar',self.background_color)
+        for combo in (self.text_color,self.background_color): combo.setFixedWidth(140)
         self.background_opacity=self.slider(appearance.background_opacity)
-        opacity_row=QWidget(); opacity_layout=QHBoxLayout(opacity_row); opacity_layout.setContentsMargins(0,0,0,0); opacity_layout.setSpacing(8)
-        self.opacity_value=QLabel(f'{appearance.background_opacity}%'); self.opacity_value.setFixedWidth(34)
-        opacity_layout.addWidget(self.background_opacity,1); opacity_layout.addWidget(self.opacity_value)
-        self.background_opacity.valueChanged.connect(lambda value:self.opacity_value.setText(f'{value}%')); form.addRow('Kepekatan',opacity_row)
-        self.width_percent=QSpinBox(); self.width_percent.setRange(30,95); self.width_percent.setSuffix(' % layar'); self.width_percent.setValue(appearance.width_percent); position_form.addRow('Lebar',self.width_percent)
-        self.height_control=QSpinBox(); self.height_control.setRange(100,360); self.height_control.setSuffix(' px'); self.height_control.setValue(appearance.height); position_form.addRow('Tinggi',self.height_control)
+        self.opacity_value=self.badge(f'{appearance.background_opacity}%')
+        self.background_opacity.valueChanged.connect(lambda value:self.opacity_value.setText(f'{value}%'))
+        text_layout.addWidget(self.group('Teks',[('type','Font',self.font_family),('height','Ukuran',self.font_size),('drop','Warna',self.text_color)]))
+        text_layout.addWidget(self.group('Latar',[('drop','Warna',self.background_color),('contrast','Kepekatan',self.pair(self.opacity_value,self.background_opacity))]))
+        self.width_percent=QSpinBox(); self.width_percent.setRange(30,95); self.width_percent.setSuffix(' %'); self.width_percent.setValue(appearance.width_percent); self.width_percent.setFixedWidth(108)
+        self.height_control=QSpinBox(); self.height_control.setRange(100,360); self.height_control.setSuffix(' px'); self.height_control.setValue(appearance.height); self.height_control.setFixedWidth(108)
         self.position_x=self.slider(appearance.position_x); self.position_y=self.slider(appearance.position_y)
+        self.x_value=self.badge(f'{appearance.position_x}'); self.y_value=self.badge(f'{appearance.position_y}')
+        self.position_x.valueChanged.connect(lambda value:self.x_value.setText(str(value))); self.position_y.valueChanged.connect(lambda value:self.y_value.setText(str(value)))
         for spin in (self.font_size,self.width_percent,self.height_control): spin.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.PlusMinus)
-        position_form.addRow('Horizontal',self.position_x); position_form.addRow('Vertikal',self.position_y)
+        position_layout.addWidget(self.group('Ukuran kotak',[('width','Lebar layar',self.width_percent),('height','Tinggi',self.height_control)]))
+        position_layout.addWidget(self.group('Letak',[('move-x','Horizontal',self.pair(self.x_value,self.position_x)),('move-y','Vertikal',self.pair(self.y_value,self.position_y))]))
+        position_layout.addStretch()
         layout.addWidget(self.tabs)
-        self.notice=QLabel('Perubahan tersimpan otomatis. Posisi subtitle tetap di luar area OCR.'); self.notice.setObjectName('panelHint'); self.notice.setWordWrap(True); layout.addWidget(self.notice)
-        self.done_button=QPushButton('Kembali ke game'); self.done_button.setObjectName('panelDone'); self.done_button.setAutoDefault(False); self.done_button.clicked.connect(self.accept); layout.addWidget(self.done_button)
-        footer=QLabel('Esc  Tutup panel     Ctrl+Alt+F10  Hentikan OCR'); footer.setObjectName('panelHint'); layout.addWidget(footer)
+        self.notice=QLabel('Perubahan tersimpan otomatis. Geser Vertikal ke kanan penuh untuk menaruh subtitle di dasar layar.'); self.notice.setObjectName('panelHint'); self.notice.setWordWrap(True); layout.addWidget(self.notice)
+        self.done_button=QPushButton('Kembali ke game'); self.done_button.setObjectName('panelDone'); self.done_button.setAutoDefault(False); self.done_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.done_button.setIcon(make_icon('play','#151b07',14)); self.done_button.clicked.connect(self.accept); layout.addWidget(self.done_button)
+        footer=QHBoxLayout(); footer.setSpacing(6)
+        for key,text in (('Esc','Tutup'),('Alt+←↑→↓','Geser panel')):
+            chip=QLabel(key); chip.setObjectName('keyBadge'); footer.addWidget(chip); hint=QLabel(text); hint.setObjectName('panelHint'); footer.addWidget(hint); footer.addSpacing(6)
+        footer.addStretch(); layout.addLayout(footer)
         self.move_shortcuts=[]
         for key,dx,dy in [('Left',-16,0),('Right',16,0),('Up',0,-16),('Down',0,16)]:
             shortcut=QShortcut(QKeySequence('Alt+'+key),self)
@@ -187,6 +207,30 @@ class OverlaySettingsPanel(QDialog):
         for control in [self.font_size,self.width_percent,self.height_control,self.background_opacity,self.position_x,self.position_y]: control.valueChanged.connect(self.emit_change)
         self.font_family.currentFontChanged.connect(self.emit_change)
         self.text_color.currentIndexChanged.connect(self.emit_change); self.background_color.currentIndexChanged.connect(self.emit_change)
+        self.appear=QPropertyAnimation(self,b'windowOpacity',self); self.appear.setDuration(220); self.appear.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+    def showEvent(self,event):
+        super().showEvent(event)
+        self.appear.stop(); self.setWindowOpacity(0.0); self.appear.setStartValue(0.0); self.appear.setEndValue(1.0); self.appear.start()
+
+    @staticmethod
+    def badge(text):
+        result=QLabel(text); result.setObjectName('valueBadge'); result.setFixedWidth(44); result.setAlignment(Qt.AlignmentFlag.AlignCenter); return result
+
+    @staticmethod
+    def pair(badge,slider):
+        widget=QWidget(); line=QHBoxLayout(widget); line.setContentsMargins(0,0,0,0); line.setSpacing(8)
+        slider.setFixedWidth(120); line.addWidget(badge); line.addWidget(slider); return widget
+
+    @staticmethod
+    def group(title,rows):
+        frame=QFrame(); frame.setObjectName('panelGroup'); layout=QVBoxLayout(frame); layout.setContentsMargins(14,12,14,12); layout.setSpacing(8)
+        heading=QLabel(title.upper()); heading.setObjectName('panelEyebrow'); layout.addWidget(heading)
+        for icon_name,text,control in rows:
+            line=QHBoxLayout(); line.setSpacing(10); line.addWidget(icon_label(icon_name,'#d6fb51',16))
+            caption=QLabel(text); caption.setObjectName('panelRowTitle'); line.addWidget(caption,1); line.addWidget(control); layout.addLayout(line)
+        return frame
+
 
     def move_within_screen(self,position):
         screen=QGuiApplication.screenAt(position+self.rect().center()) or self.screen()
@@ -198,7 +242,7 @@ class OverlaySettingsPanel(QDialog):
     @staticmethod
     def slider(value):
         widget=QSlider(Qt.Orientation.Horizontal); widget.setRange(0,100); widget.setValue(value)
-        widget.setStyleSheet('QSlider { background-color: #17191a; }')
+        widget.setCursor(Qt.CursorShape.PointingHandCursor); widget.setFocusPolicy(Qt.FocusPolicy.TabFocus)
         return widget
 
     @staticmethod
@@ -217,3 +261,77 @@ class OverlaySettingsPanel(QDialog):
                 'height':self.height_control.value(),'position_x':self.position_x.value(),'position_y':self.position_y.value()})
             self.changed.emit(appearance)
         except ValueError as exc: self.notice.setText(str(exc))
+
+
+class OverlayHub(QWidget):
+    """Full-screen in-game layer (like the Steam/Discord overlay): dims the game, shows a top bar,
+    quick actions and the last subtitle. Clicking the backdrop returns to the game."""
+    dismissed=Signal()
+
+    def __init__(self,screen,actions=(),subtitle='',ocr_active=False,hotkey='Ctrl+Alt+O'):
+        super().__init__(None,Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
+        self.setObjectName('overlayHub'); self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground); self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        self.setGeometry(screen.geometry()); self.setStyleSheet(HUB_STYLE)
+        layout=QVBoxLayout(self); layout.setContentsMargins(28,22,28,28); layout.setSpacing(0)
+        bar=QFrame(); bar.setObjectName('hubBar'); top=QHBoxLayout(bar); top.setContentsMargins(16,10,16,10); top.setSpacing(12)
+        logo=QLabel('LP'); logo.setObjectName('hubLogo'); logo.setFixedSize(30,30); logo.setAlignment(Qt.AlignmentFlag.AlignCenter); top.addWidget(logo)
+        name=QLabel('LinguaPlay'); name.setObjectName('hubTitle'); top.addWidget(name)
+        state=QLabel('●  OCR dijeda' if ocr_active else '●  Overlay'); state.setObjectName('hubChip'); top.addWidget(state); top.addStretch()
+        self.clock=QLabel(); self.clock.setObjectName('hubClock'); top.addWidget(self.clock)
+        key=QLabel(hotkey); key.setObjectName('hubKey'); top.addWidget(key); back=QLabel('kembali ke game'); back.setObjectName('hubHint'); top.addWidget(back)
+        layout.addWidget(bar); layout.addSpacing(12)
+        # Actions and the last line sit at the top: the bottom of the screen belongs to the subtitles.
+        pills=QHBoxLayout(); pills.setSpacing(10)
+        for icon_name,text,callback in actions:
+            pill=QPushButton(text); pill.setObjectName('hubPill'); pill.setIcon(make_icon(icon_name,'#eef1ee',16)); pill.setIconSize(QSize(16,16))
+            pill.setCursor(Qt.CursorShape.PointingHandCursor); pill.clicked.connect(callback); pills.addWidget(pill)
+        pills.addStretch(); layout.addLayout(pills)
+        if subtitle:
+            card=QFrame(); card.setObjectName('hubCard'); inside=QVBoxLayout(card); inside.setContentsMargins(16,12,16,14); inside.setSpacing(6)
+            heading=QHBoxLayout(); heading.addWidget(icon_label('translate','#d6fb51',16)); caption=QLabel('SUBTITLE TERAKHIR'); caption.setObjectName('hubEyebrow'); heading.addWidget(caption,1); inside.addLayout(heading)
+            text=QLabel(subtitle); text.setObjectName('hubSubtitle'); text.setWordWrap(True); inside.addWidget(text); card.setMinimumWidth(380); card.setMaximumWidth(520)
+            layout.addSpacing(12); layout.addWidget(card,0,Qt.AlignmentFlag.AlignLeft)
+        layout.addStretch()
+        self.timer=QTimer(self); self.timer.timeout.connect(self.tick); self.timer.start(1000); self.tick()
+        self.fade=QPropertyAnimation(self,b'windowOpacity',self); self.fade.setDuration(240); self.fade.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.closing=False
+
+    def tick(self):
+        self.clock.setText(datetime.now().strftime('%H:%M'))
+
+    def paintEvent(self,event):
+        painter=QPainter(self); painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.fillRect(self.rect(),QColor(4,6,6,150))
+        glow=QRadialGradient(self.width()*.5,self.height()*.45,max(self.width(),self.height())*.75)
+        glow.setColorAt(0,QColor(0,0,0,0)); glow.setColorAt(1,QColor(0,0,0,120)); painter.fillRect(self.rect(),glow)
+
+    def present(self):
+        self.setWindowOpacity(0.0); self.show(); self.fade.stop(); self.fade.setStartValue(0.0); self.fade.setEndValue(1.0); self.fade.start()
+
+    def dismiss(self):
+        if self.closing: return
+        self.closing=True; self.timer.stop(); self.fade.stop(); self.fade.setStartValue(self.windowOpacity()); self.fade.setEndValue(0.0)
+        self.fade.finished.connect(self.close); self.fade.start()
+
+    def mousePressEvent(self,event):
+        if event.button()==Qt.MouseButton.LeftButton: self.dismissed.emit()
+
+    def keyPressEvent(self,event):
+        if event.key()==Qt.Key.Key_Escape: self.dismissed.emit()
+        else: super().keyPressEvent(event)
+
+HUB_STYLE="""
+QWidget#overlayHub { font-family: "Segoe UI"; color: #eef1ee; }
+QFrame#hubBar { background: rgba(22,24,26,235); border: 1px solid rgba(255,255,255,0.09); border-radius: 18px; }
+QLabel#hubLogo { background: #d6fb51; color: #151b07; border-radius: 9px; font-weight: 800; font-size: 12px; }
+QLabel#hubTitle { font-size: 15px; font-weight: 700; color: #f6f8f4; }
+QLabel#hubChip { color: #d6fb51; background: rgba(214,251,81,0.10); border: 1px solid rgba(214,251,81,0.22); border-radius: 10px; padding: 3px 10px; font-size: 11px; font-weight: 700; }
+QLabel#hubClock { color: #f2f5ef; font-size: 15px; font-weight: 700; padding-right: 8px; }
+QLabel#hubKey { color: #cfd6d1; background: rgba(255,255,255,0.08); border-radius: 7px; padding: 3px 8px; font-size: 11px; font-weight: 700; }
+QLabel#hubHint { color: #98a09b; font-size: 12px; }
+QFrame#hubCard { background: rgba(26,29,30,232); border: 1px solid rgba(255,255,255,0.09); border-radius: 18px; }
+QLabel#hubEyebrow { color: #8d958f; font-size: 10px; font-weight: 800; letter-spacing: 1.4px; }
+QLabel#hubSubtitle { color: #f2f5ef; font-size: 14px; }
+QPushButton#hubPill { color: #eef1ee; background: rgba(40,43,45,235); border: 1px solid rgba(255,255,255,0.12); border-radius: 22px; padding: 11px 20px; font-size: 14px; font-weight: 600; }
+QPushButton#hubPill:hover { background: rgba(58,62,64,245); border-color: rgba(214,251,81,0.5); }
+"""

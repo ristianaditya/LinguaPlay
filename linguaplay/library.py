@@ -41,7 +41,8 @@ class GameLibrary:
         profile=self.profiles.get(identity)
         if not isinstance(profile,dict): profile={}
         defaults={'source_language':'en','target_language':'id','adapter_id':'','support_level':'unknown',
-                  'glossary_path':'','memory_path':'','overlay_profile_id':'default','last_scan':''}
+                  'glossary_path':'','memory_path':'','overlay_profile_id':'default','last_scan':'',
+                  'engine_name':'','anticheat':'','engine_note':''}
         result=defaults.copy(); result.update({k:v for k,v in profile.items() if k in defaults})
         return result
 
@@ -82,6 +83,29 @@ def steam_roots():
     return [r for r in roots if (r/'steamapps').is_dir()]
 
 
+# Steam runtime/redistributable packages that appear as installed apps but are not games.
+STEAM_TOOLS={'228980','1070560','1391110','1628350','1826330'}
+
+def _cached_image(cache,appid,names):
+    """Find artwork in the old flat cache (<id>_<name>.jpg) or the newer per-app folders,
+    which may nest files one level deeper in a hash-named directory."""
+    folder=cache/appid
+    for name in names:
+        for candidate in [*cache.glob(f'{appid}_{name}.*'),*folder.glob(f'{name}.*'),*folder.glob(f'*/{name}.*')]:
+            if candidate.is_file() and candidate.suffix.lower() in ('.jpg','.jpeg','.png','.webp'):
+                return str(candidate)
+    return ''
+
+def steam_artwork(clients,appid):
+    """Local Steam library artwork only; nothing is downloaded."""
+    for client in clients:
+        cache=Path(client)/'appcache'/'librarycache'
+        if not cache.is_dir(): continue
+        cover=_cached_image(cache,appid,('library_600x900','library_capsule','header','library_header','library_hero'))
+        hero=_cached_image(cache,appid,('library_hero','header','library_header'))
+        if cover or hero: return {'cover':cover or hero,'hero':hero or cover}
+    return {'cover':'','hero':''}
+
 def discover_steam(roots=None):
     initial=list(roots if roots is not None else steam_roots()); libraries=list(initial)
     for root in initial:
@@ -97,12 +121,9 @@ def discover_steam(roots=None):
                 if not appid.isdigit() or Path(install).name!=install or install in ('.','..'): continue
                 folder=(root/'steamapps'/'common'/install).resolve()
                 if not folder.is_dir(): continue
-                cover=''
-                for client in initial:
-                    cache=Path(client)/'appcache'/'librarycache'
-                    candidate=next(iter(cache.glob(f'{appid}_library_600x900.*')),None)
-                    if candidate: cover=str(candidate); break
-                games[appid]={'id':'steam-'+appid,'name':data.get('name',install),'root':str(folder),'executable':'','steam_id':appid,'cover':cover,'last_played':''}
+                if appid in STEAM_TOOLS: continue
+                art=steam_artwork(initial,appid)
+                games[appid]={'id':'steam-'+appid,'name':data.get('name',install),'root':str(folder),'executable':'','steam_id':appid,'cover':art['cover'],'hero':art['hero'],'last_played':''}
             except (OSError,UnicodeError,KeyError): continue
     return sorted(games.values(),key=lambda g:g['name'].casefold())
 
@@ -148,6 +169,8 @@ def validate_launch_target(game):
     if not root.is_dir(): raise ValueError('Folder game tidak ditemukan. Perbarui lokasi game.')
     if game.get('steam_id'):
         if not str(game['steam_id']).isdigit(): raise ValueError('ID game Steam tidak valid.')
+    elif game.get('launch_uri','').startswith(('com.epicgames.launcher://','uplay://')) and not game.get('executable'):
+        return
     else:
         exe=Path(game.get('executable',''))
         if not exe.is_file() or exe.suffix.lower()!='.exe' or not exe.resolve().is_relative_to(root.resolve()): raise ValueError('File EXE game tidak ditemukan di folder game. Perbarui lokasinya.')

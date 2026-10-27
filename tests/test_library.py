@@ -78,6 +78,36 @@ class GameLibraryTests(unittest.TestCase):
             (apps/'appmanifest_99.acf').write_text('"AppState" { "appid" "99" "name" "Missing" "installdir" "Missing" }')
             self.assertEqual(len(discover_steam([root])),1)
 
+    def test_steam_artwork_supports_new_cache_folders_and_skips_redistributables(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory); apps=root/'steamapps'; cache=root/'appcache'/'librarycache'
+            for appid,name in (('42','Adventure'),('7','Puzzle'),('228980','Steamworks Common Redistributables')):
+                (apps/'common'/name).mkdir(parents=True)
+                (apps/f'appmanifest_{appid}.acf').write_text(f'"AppState" {{ "appid" "{appid}" "name" "{name}" "installdir" "{name}" }}')
+            (cache/'42').mkdir(parents=True); (cache/'42'/'library_600x900.jpg').write_bytes(b'x'); (cache/'42'/'library_hero.jpg').write_bytes(b'x')
+            (cache/'7'/'abc123').mkdir(parents=True); (cache/'7'/'abc123'/'library_capsule.jpg').write_bytes(b'x')
+            games={g['steam_id']:g for g in discover_steam([root])}
+            self.assertEqual(sorted(games),['42','7'])
+            self.assertTrue(games['42']['cover'].endswith('library_600x900.jpg')); self.assertTrue(games['42']['hero'].endswith('library_hero.jpg'))
+            self.assertTrue(games['7']['cover'].endswith('library_capsule.jpg'))
+
+    def test_engine_and_anticheat_detection_explains_scan_and_blocks_patches(self):
+        from linguaplay.adapters import scan_game_root
+        from linguaplay.engines import identify_engine
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            unity=root/'unity'; unity.mkdir(); (unity/'UnityPlayer.dll').touch()
+            godot=root/'godot'; godot.mkdir(); (godot/'Game.pck').write_bytes(b'GDPC'+b'\0'*12)
+            unreal=root/'unreal'; (unreal/'Game'/'Content'/'Paks').mkdir(parents=True); (unreal/'Game'/'Content'/'Paks'/'Game.pak').touch()
+            self.assertEqual(identify_engine(unity)['engine'],'unity')
+            self.assertEqual(identify_engine(godot)['engine'],'godot')
+            self.assertEqual(identify_engine(unreal)['engine'],'unreal')
+            protected=root/'protected'; (protected/'EasyAntiCheat').mkdir(parents=True)
+            (protected/'dialogue.en.srt').write_text('1\n00:00:01,000 --> 00:00:02,000\nHello\n')
+            report=scan_game_root(protected)
+            self.assertEqual(report['anticheat'],'EasyAntiCheat'); self.assertEqual(report['support_level'],'ocr')
+            self.assertIn('ban',report['engine_note'])
+
     def test_untranslated_game_can_play_original_but_not_translated(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory); exe=root/'game.exe'; exe.touch(); game=GameLibrary(root/'data').add_executable(exe)

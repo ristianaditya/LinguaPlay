@@ -61,6 +61,12 @@ class Document:
                 result = result[:start] + value.replace('\n', newline) + result[end:]
         return self.encode(result)
 
+    def check_translation(self, entry_id, value):
+        if not isinstance(value, str) or not value.strip() or '\x00' in value:
+            raise ValueError('Terjemahan kosong atau tidak valid.')
+        if self.payload is None and (re.search(r'\n\s*\n', value.replace('\r\n', '\n')) or '-->' in value):
+            raise ValueError('Terjemahan merusak struktur subtitle (baris kosong atau -->).')
+
     def encode(self,text):
         if self.raw.startswith(b'\xfe\xff'):
             return b'\xfe\xff'+text.encode('utf-16-be')
@@ -155,25 +161,26 @@ def _load_builtin(path) -> Document:
 
 _ADAPTERS = {}
 
-def register_adapter(name, extensions, reader):
+def register_adapter(name, extensions, reader, max_size=MAX_FILE_SIZE):
     """Developer extension point; trusted Python code only, no remote plugin loading."""
     extensions=tuple(extension.lower() for extension in extensions)
     if name in _ADAPTERS or not extensions or any(not e.startswith('.') for e in extensions):
         raise ValueError('Nama adapter sudah ada atau daftar ekstensi tidak valid.')
-    _ADAPTERS[name]=(extensions,reader)
+    _ADAPTERS[name]=(extensions,reader,max_size)
 
 def unregister_adapter(name):
-    if name in ('srt','webvtt','json-strings'):
+    if name in ('srt','webvtt','json-strings','naughty-dog-psarc','sims4-stbl','godot-pck-gettext','unity-string-table'):
         raise ValueError('Adapter bawaan tidak dapat dihapus saat runtime.')
     _ADAPTERS.pop(name,None)
 
 def load_document(path) -> Document:
     path=Path(path)
-    if path.stat().st_size>MAX_FILE_SIZE:
-        raise ValueError('File melebihi batas 8 MiB.')
+    size=path.stat().st_size
     errors=[]
-    for extensions,reader in _ADAPTERS.values():
+    for extensions,reader,max_size in _ADAPTERS.values():
         if path.suffix.lower() in extensions:
+            if size>max_size:
+                errors.append(f'File melebihi batas {max_size//(1024*1024)} MiB.'); continue
             try:
                 document=reader(path)
                 ids=[entry.id for entry in document.entries]
@@ -186,6 +193,7 @@ def load_document(path) -> Document:
 register_adapter('srt',('.srt',),_load_builtin)
 register_adapter('webvtt',('.vtt',),_load_builtin)
 register_adapter('json-strings',('.json',),_load_builtin)
+from . import psarc_text, dbpf_text, godot_text, unity_text  # noqa: E402,F401  registers the PSARC, Sims 4, Godot and Unity adapters
 
 def _is_reparse(path):
     try:
@@ -201,6 +209,7 @@ class ScanReport:
     documents: list[Document] = field(default_factory=list)
     unsupported: list[dict] = field(default_factory=list)
     executables: list[str] = field(default_factory=list)
+    engine: dict = field(default_factory=dict)
     inspected: int = 0
     truncated: bool = False
 
@@ -208,13 +217,15 @@ class ScanReport:
         return {'schema':1, 'root_name':self.root.name, 'inspected':self.inspected,
                 'truncated':self.truncated, 'executables':self.executables,
                 'supported':[{'path':str(d.path.relative_to(self.root)), 'format':d.format, 'entries':len(d.entries)} for d in self.documents],
-                'unsupported':self.unsupported}
+                'unsupported':self.unsupported, 'engine':self.engine}
 
 def scan_folder(path, cancel: Event | None = None, progress=None) -> ScanReport:
     root = Path(path).resolve(strict=True)
     if not root.is_dir():
         raise ValueError('Pilih folder instalasi game.')
     report = ScanReport(root)
+    from .engines import identify_engine
+    report.engine = identify_engine(root)
     containers = {'.pak','.pck','.bundle','.assets','.loc','.dat','.bin','.archive','.ucas','.utoc'}
     for folder, dirs, files in os.walk(root, followlinks=False):
         dirs[:] = sorted(d for d in dirs if d not in {'.linguaplay','.git','node_modules','backups','__pycache__'} and not _is_reparse(Path(folder)/d))
@@ -231,7 +242,7 @@ def scan_folder(path, cancel: Event | None = None, progress=None) -> ScanReport:
             rel = str(file.relative_to(root))
             if file.suffix.lower() == '.exe' and len(report.executables) < 30:
                 report.executables.append(rel)
-            supported_extensions={ext for extensions,_ in _ADAPTERS.values() for ext in extensions}
+            supported_extensions={ext for extensions,*_ in _ADAPTERS.values() for ext in extensions}
             if file.suffix.lower() not in containers | supported_extensions:
                 continue
             try:
@@ -252,7 +263,10 @@ def scan_game_root(path) -> dict:
     """Return a small compatibility summary for the library UI."""
     report = scan_folder(path)
     candidates = [str(d.path.relative_to(report.root)) for d in report.documents]
-    if candidates:
+    engine = report.engine or {}
+    if engine.get('anticheat'):
+        level = 'ocr'   # never offer patches for anti-cheat protected games
+    elif candidates:
         level = 'patch'
     elif report.unsupported:
         level = 'ocr'
@@ -261,4 +275,5 @@ def scan_game_root(path) -> dict:
     return {'support_level': level, 'candidates': candidates,
             'adapter_id': report.documents[0].format if report.documents else '',
             'warnings': [item['reason'] for item in report.unsupported[:20]],
+            'engine_name': engine.get('engine_name', ''), 'anticheat': engine.get('anticheat', ''), 'engine_note': engine.get('note', ''),
             'scan_hash': digest(json.dumps(report.diagnostic(), sort_keys=True).encode())}

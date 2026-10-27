@@ -63,7 +63,7 @@ def prepare_patch(root, documents, storage):
             raise PatchError('Tidak ada terjemahan atau ID tidak dikenal.')
         for entry in doc.entries: validate_tokens(entry.text,mapping.get(entry.id,entry.text))
         rendered=doc.render(mapping)
-        backup=f'{index}.original'; staged=f'{index}{doc.path.suffix.lower()}'
+        backup=f'{index}.original'; staged=f'{index}.{doc.path.name}'
         (folder/backup).write_bytes(doc.raw)
         (folder/staged).write_bytes(rendered)
         check=load_document(folder/staged)
@@ -147,3 +147,56 @@ def verify_installed_patch(folder):
     for item in manifest['files']:
         if digest((root/item['path']).read_bytes())!=item['installed_hash']:
             raise PatchError('File patch berubah. Periksa Cadangan sebelum menjalankan game.')
+
+def discard_prepared(folder):
+    """Delete a staging folder that was never installed (e.g. superseded by edited translations)."""
+    if not folder: return
+    folder=Path(folder)
+    try:
+        manifest=json.loads((folder/'manifest.json').read_text(encoding='utf-8'))
+    except (OSError,ValueError): return
+    if manifest.get('schema')==1 and manifest.get('status')=='prepared':
+        import shutil
+        shutil.rmtree(folder,ignore_errors=True)
+
+
+def installed_files(storage):
+    """{absolute game file (casefolded): (patch folder, manifest item)} for installed patches."""
+    result={}
+    for folder,manifest in list_patches(storage):
+        if manifest.get('status')!='installed': continue
+        try: root=Path(manifest['root'])
+        except (KeyError,TypeError): continue
+        for item in manifest.get('files',[]):
+            result[str((root/item['path']).resolve()).casefold()]=(folder,item)
+    return result
+
+def use_original_sources(report,storage):
+    """Files currently carrying an installed LinguaPlay patch are re-read from their backup, so a
+    new translation starts from the original text instead of translating the translation."""
+    import tempfile, shutil
+    installed=installed_files(storage); replaced=0
+    for index,doc in enumerate(report.documents):
+        found=installed.get(str(Path(doc.path).resolve()).casefold())
+        if not found: continue
+        folder,item=found
+        try:
+            if digest(Path(doc.path).read_bytes())!=item['installed_hash']: continue
+            backup=Path(folder)/item['backup']
+            with tempfile.TemporaryDirectory() as temp:
+                copy=Path(temp)/Path(doc.path).name; shutil.copyfile(backup,copy)
+                original=load_document(copy)
+            if original.sha256!=item['original_hash']: continue
+            original.path=Path(doc.path); report.documents[index]=original; replaced+=1
+        except (OSError,ValueError,KeyError): continue
+    return replaced
+
+def supersede_installed(storage,new_folder,process_root=None):
+    """Restore older installed patches that touch the same files as new_folder (before installing it)."""
+    manifest=json.loads((Path(new_folder)/'manifest.json').read_text(encoding='utf-8'))
+    targets={str((Path(manifest['root'])/item['path']).resolve()).casefold() for item in manifest['files']}
+    restored=set()
+    for path,(folder,item) in installed_files(storage).items():
+        if path in targets and Path(folder).resolve()!=Path(new_folder).resolve() and folder not in restored:
+            restore_patch(folder,process_root); restored.add(folder)
+    return len(restored)
