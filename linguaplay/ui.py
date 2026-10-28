@@ -10,7 +10,7 @@ from PySide6.QtGui import QFont, QFontDatabase, QDesktopServices, QIcon, QColor,
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QLabel, QPushButton, QLineEdit, QComboBox, QFileDialog, QTableWidget, QTableWidgetItem,
     QHeaderView, QAbstractItemView, QStackedWidget, QFrame, QSplitter, QPlainTextEdit,
-    QProgressBar, QListWidget, QListWidgetItem, QFormLayout, QMessageBox, QKeySequenceEdit)
+    QProgressBar, QListWidget, QListWidgetItem, QFormLayout, QMessageBox, QKeySequenceEdit,QDialog)
 from .adapters import scan_folder
 from .translation import Translator, ProviderConfig, TranslationError, TOKENS, validate_tokens
 from .translation_memory import UserEdits
@@ -22,6 +22,7 @@ from .overlay_settings import OverlaySettingsPanel, OverlayHub, load_appearance,
 from .desktop_theme import STYLE, apply_palette, apply_window_chrome
 from .desktop_layout import DesktopLayout
 from .library_ui import LibraryUI
+from .desktop_widgets import PatchReviewDialog
 
 class Worker(QThread):
     result=Signal(object); failure=Signal(str); progress=Signal(str)
@@ -314,6 +315,23 @@ class MainWindow(LibraryUI,DesktopLayout,QMainWindow):
 
     def install(self):
         if not self.report or not (self.prepared or self.translations): return
+        review_files=[]; untouched=0
+        for doc in self.report.documents:
+            mapping=self.translations.get(str(doc.path))
+            if not mapping: continue
+            changed=sum(1 for entry in doc.entries if mapping.get(entry.id,entry.text)!=entry.text)
+            review_files.append((str(doc.path.relative_to(self.report.root)),changed,len(doc.entries)))
+            untouched+=max(0,len(doc.entries)-len(mapping))
+        warnings=[
+            'Tutup game sebelum memasang. Pemasangan ditolak jika proses game masih berjalan.',
+            'Jika file berubah sejak dipindai, LinguaPlay membatalkan pemasangan dan meminta pemindaian ulang.',
+            'File asli dicadangkan dan dapat dipulihkan dari halaman Cadangan.'
+        ]
+        if untouched: warnings.append(f'{untouched} baris tidak memiliki terjemahan dan tetap memakai teks asli.')
+        review=PatchReviewDialog(review_files,warnings,self)
+        if review.exec()!=QDialog.DialogCode.Accepted:
+            self.status.setText('Pemasangan dibatalkan. File game belum diubah.')
+            return
         stale=self.prepared if self.patch_dirty else None
         pairs=[(doc,dict(self.translations[str(doc.path)])) for doc in self.report.documents if self.translations.get(str(doc.path))]
         root=self.report.root

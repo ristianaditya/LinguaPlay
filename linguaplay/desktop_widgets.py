@@ -3,7 +3,8 @@ from PySide6.QtCore import (Qt,Signal,QSize,QRectF,QObject,QEvent,QEasingCurve,Q
     QPropertyAnimation,QPoint,QAbstractAnimation)
 from PySide6.QtGui import QColor,QPainter,QPen,QLinearGradient,QFontMetrics,QFont
 from PySide6.QtWidgets import (QLabel,QPushButton,QFrame,QVBoxLayout,QHBoxLayout,QTableWidget,QWidget,
-    QHeaderView,QAbstractItemView,QComboBox,QListWidget,QProgressBar,QGraphicsOpacityEffect,QPlainTextEdit)
+    QHeaderView,QAbstractItemView,QComboBox,QListWidget,QProgressBar,QGraphicsOpacityEffect,QPlainTextEdit,
+    QDialog,QDialogButtonBox,QTableWidgetItem)
 from PySide6.QtWidgets import QGraphicsDropShadowEffect
 from .icons import icon as make_icon, pixmap as icon_pixmap
 
@@ -97,6 +98,26 @@ def row(icon,title,widget=None,detail=None):
     line.addLayout(text,1)
     if widget is not None: line.addWidget(widget)
     return container
+
+class PatchReviewDialog(QDialog):
+    """Review the staged file set and safety checks before writing into a game folder."""
+    def __init__(self,files,warnings,parent=None):
+        super().__init__(parent); self.setWindowTitle('Tinjau patch sebelum memasang'); self.setMinimumSize(620,420); self.resize(720,500)
+        layout=QVBoxLayout(self); layout.setContentsMargins(22,20,22,18); layout.setSpacing(12)
+        layout.addWidget(label('Periksa perubahan patch','heading'))
+        layout.addWidget(label('File game belum diubah. Pemasangan baru berjalan setelah Anda memilih “Pasang patch”.','muted'))
+        self.files=QTableWidget(0,3); self.files.setHorizontalHeaderLabels(['FILE','BARIS BERUBAH','TOTAL BARIS'])
+        self.files.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers); self.files.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        self.files.setAlternatingRowColors(True); self.files.verticalHeader().hide(); self.files.horizontalHeader().setSectionResizeMode(0,QHeaderView.ResizeMode.Stretch)
+        for column in (1,2): self.files.horizontalHeader().setSectionResizeMode(column,QHeaderView.ResizeMode.ResizeToContents)
+        for path,changed,total in files:
+            row=self.files.rowCount(); self.files.insertRow(row)
+            self.files.setItem(row,0,QTableWidgetItem(path)); self.files.setItem(row,1,QTableWidgetItem(str(changed))); self.files.setItem(row,2,QTableWidgetItem(str(total)))
+        layout.addWidget(self.files,1)
+        warning_text='\n'.join('• '+warning for warning in warnings)
+        warning=label(warning_text,'notice'); warning.setWordWrap(True); layout.addWidget(warning)
+        buttons=QDialogButtonBox(); self.apply_button=buttons.addButton('Pasang patch',QDialogButtonBox.ButtonRole.AcceptRole)
+        buttons.addButton('Batal',QDialogButtonBox.ButtonRole.RejectRole); buttons.accepted.connect(self.accept); buttons.rejected.connect(self.reject); layout.addWidget(buttons)
 
 class Spinner(QWidget):
     def __init__(self,size=18,color=ACCENT):
