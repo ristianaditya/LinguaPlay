@@ -286,7 +286,7 @@ class DesktopLayout:
 
     def build_settings(self):
         layout=self.page('Layanan terjemahan','Hubungkan model lokal atau API Anda, lalu tentukan bahasa terjemahan.','sliders')
-        content=QWidget(); content.setMinimumWidth(0)
+        content=QWidget(); content.setObjectName('settingsContent'); content.setMinimumWidth(0)
         columns=QHBoxLayout(content); columns.setContentsMargins(0,0,0,0); columns.setSpacing(18); self.settings_columns=columns
         settings_frame,settings_layout=card('Koneksi dan bahasa','cpu'); form=QFormLayout(); form.setVerticalSpacing(14); form.setHorizontalSpacing(20)
         self.settings_form=form; form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
@@ -312,6 +312,12 @@ class DesktopLayout:
             help_layout.addWidget(label(title.upper(),'eyebrow')); help_layout.addWidget(label(text,kind)); help_layout.addSpacing(4)
         help_layout.addStretch(); columns.addWidget(help_frame)
         scroll=QScrollArea(); scroll.setObjectName('settingsScroll'); scroll.setWidgetResizable(True); scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet('QScrollArea#settingsScroll { background: transparent; border: none; }')
+        scroll.viewport().setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        scroll.viewport().setAutoFillBackground(False)
+        content.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        content.setAutoFillBackground(False)
+        content.setStyleSheet('QWidget#settingsContent { background: transparent; }')
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff); scroll.setWidget(content)
         layout.addWidget(scroll,1); self.settings_scroll=scroll
         self._apply_responsive_layout()
