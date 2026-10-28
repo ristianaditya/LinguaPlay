@@ -2,6 +2,7 @@
 from pathlib import Path
 import json
 import re
+import shutil
 
 _ID = re.compile(r'^[a-z0-9][a-z0-9._-]{1,63}$')
 _VERSION = re.compile(r'^\d+\.\d+\.\d+$')
@@ -29,3 +30,18 @@ def validate_manifest(path):
         raise ValueError('entrypoint paket tidak aman.')
     return {'id':data['id'],'version':data['version'],'game_ids':list(game_ids),
             'formats':list(formats),'entrypoint':entrypoint}
+
+
+def install_package(package_dir, destination):
+    """Validate and copy a support pack into the local app data directory."""
+    source = Path(package_dir).resolve(strict=True)
+    if not source.is_dir(): raise ValueError('Folder Support Pack tidak valid.')
+    manifest = validate_manifest(source / 'manifest.json')
+    entry = source / manifest['entrypoint']
+    if not entry.is_file(): raise ValueError('Entry point Support Pack tidak ditemukan.')
+    target_root = Path(destination).resolve(); target_root.mkdir(parents=True, exist_ok=True)
+    target = target_root / manifest['id']
+    if target.exists():
+        shutil.rmtree(target)
+    shutil.copytree(source, target, ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
+    return target

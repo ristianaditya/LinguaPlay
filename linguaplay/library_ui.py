@@ -14,6 +14,7 @@ from .icons import icon as make_icon, pixmap as icon_pixmap
 from .launchers import discover_other,discover_folder,SOURCES,LAUNCH_SCHEMES
 from .library import GameLibrary,discover_steam,STEAM_TOOLS,game_patch_state,patches_for,set_play_mode,launch_executable,validate_launch_target
 from .adapters import scan_game_root
+from .adapter_packages import install_package
 
 STATE_LABELS={'installed':'Terjemahan terpasang','ready':'Patch siap dimainkan','original':'Versi asli','recovery':'Perlu pemulihan'}
 
@@ -171,6 +172,7 @@ class LibraryUI:
         inside.addWidget(label('INSTALASI','eyebrow')); place=QHBoxLayout(); place.setSpacing(10); place.addWidget(icon_label('folder',ACCENT,17),0,Qt.AlignmentFlag.AlignTop)
         self.detail_location=label('','small'); self.detail_location.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse); place.addWidget(self.detail_location,1); inside.addLayout(place)
         inside.addWidget(button('Buka folder game',self.open_library_folder,icon='folder')); inside.addStretch()
+        inside.addWidget(button('Impor Support Pack',self.import_support_pack,icon='download'))
         inside.addWidget(label('PINTASAN','eyebrow')); key=QHBoxLayout(); badge=self.hotkey_badge('overlay'); key.addWidget(badge); key.addWidget(label('Overlay dalam game','small'),1); inside.addLayout(key)
         columns.addWidget(info); layout.addLayout(columns,1)
         remove=QHBoxLayout(); remove.addWidget(button('Hapus dari library',self.remove_library_game,icon='trash')); remove.addWidget(label('File game dan cadangan tetap tersimpan.','small'),1); layout.addLayout(remove)
@@ -292,6 +294,15 @@ class LibraryUI:
     def open_library_folder(self):
         game=self.current_library_game()
         if game: QDesktopServices.openUrl(QUrl.fromLocalFile(game['root']))
+
+    def import_support_pack(self):
+        folder=QFileDialog.getExistingDirectory(self,'Pilih folder Support Pack')
+        if not folder: return
+        try:
+            target=install_package(folder,self.data/'support-packs')
+            self.status.setText(f'Support Pack {target.name} berhasil diimpor dan divalidasi.')
+        except (OSError,ValueError) as exc:
+            self.error(str(exc))
 
     def play_library_game(self):
         game=self.current_library_game()
