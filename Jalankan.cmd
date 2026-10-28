@@ -20,6 +20,11 @@ if not exist ".venv\Scripts\python.exe" (
   python -m venv .venv
   if errorlevel 1 goto failed
 )
+.venv\Scripts\python.exe -m pip --version >nul 2>&1
+if errorlevel 1 (
+  .venv\Scripts\python.exe -m ensurepip --upgrade >nul 2>&1
+  if errorlevel 1 goto failed
+)
 .venv\Scripts\python.exe -c "import PySide6, PIL, winrt.windows.media.ocr, ctranslate2, sentencepiece, psutil" >nul 2>&1
 if errorlevel 1 (
   .venv\Scripts\python.exe -m pip install -r requirements.txt
