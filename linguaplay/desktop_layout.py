@@ -107,6 +107,16 @@ class DesktopLayout:
             else:
                 self.settings_help_frame.setFixedWidth(304)
                 self.settings_columns.setStretch(0,1); self.settings_columns.setStretch(1,0)
+        if hasattr(self,'patch_page_scroll'):
+            for inner_scroll in self.patch_work_scrolls:
+                inner_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff if compact else Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+                if compact:
+                    child=inner_scroll.widget()
+                    inner_scroll.setMinimumHeight(max(child.minimumHeight(),child.minimumSizeHint().height(),child.sizeHint().height()))
+                else:
+                    inner_scroll.setMinimumHeight(0)
+            self._set_column_direction(self.patch_columns,compact)
+            self._set_column_direction(self.patch_header,compact)
         for columns in getattr(self,'responsive_columns',[]):
             self._set_column_direction(columns,compact)
         for scroll in getattr(self,'responsive_sidebars',[]):
@@ -183,8 +193,17 @@ class DesktopLayout:
         scroll.setProperty('responsiveSidebar',True); scroll.setWidget(widget); return scroll
 
     def build_patch(self):
-        page=QWidget(); layout=QVBoxLayout(page); layout.setContentsMargins(0,0,0,0); layout.setSpacing(16); self.pages.addWidget(page)
-        header=QHBoxLayout(); header.setSpacing(14)
+        page=QWidget(); page_layout=QVBoxLayout(page); page_layout.setContentsMargins(0,0,0,0); page_layout.setSpacing(0); self.pages.addWidget(page)
+        page_content=QWidget(); page_content.setObjectName('patchPageContent'); layout=QVBoxLayout(page_content); layout.setContentsMargins(0,0,0,0); layout.setSpacing(16)
+        self.patch_page_scroll=QScrollArea(); self.patch_page_scroll.setObjectName('patchPageScroll'); self.patch_page_scroll.setWidgetResizable(True); self.patch_page_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.patch_page_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.patch_page_scroll.setStyleSheet('QScrollArea#patchPageScroll { background: transparent; border: none; }')
+        self.patch_page_scroll.viewport().setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.patch_page_scroll.viewport().setAutoFillBackground(False)
+        page_content.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground); page_content.setAutoFillBackground(False)
+        page_content.setStyleSheet('QWidget#patchPageContent { background: transparent; }')
+        self.patch_page_scroll.setWidget(page_content); page_layout.addWidget(self.patch_page_scroll)
+        header=QHBoxLayout(); header.setSpacing(14); self.patch_header=header
         game_mark=QLabel(); game_mark.setObjectName('gameMark'); game_mark.setFixedSize(52,52); game_mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
         game_mark.setPixmap(icon_pixmap('translate',ACCENT,26)); header.addWidget(game_mark)
         title_col=QVBoxLayout(); title_col.setSpacing(3)
@@ -192,7 +211,10 @@ class DesktopLayout:
         self.game_caption=label('Terjemahkan subtitle sebelum mulai bermain.','muted'); title_col.addWidget(self.game_title); title_col.addWidget(self.game_caption); header.addLayout(title_col,1)
         self.choose_button=button('Pilih folder',self.choose_folder,icon='folder')
         self.translate_button=button('Terjemahkan pilihan',self.translate,True,icon='zap'); self.translate_button.setEnabled(False)
-        header.addWidget(self.choose_button); header.addWidget(self.translate_button); layout.addLayout(header)
+        self.install_button=button('Pasang patch',self.install,True,icon='download'); self.install_button.setEnabled(False)
+        header_actions_widget=QWidget(); header_actions=QHBoxLayout(header_actions_widget); header_actions.setContentsMargins(0,0,0,0); header_actions.setSpacing(8)
+        header_actions.addWidget(self.choose_button); header_actions.addWidget(self.install_button); header_actions.addWidget(self.translate_button)
+        header.addWidget(header_actions_widget); layout.addLayout(header)
         columns=QHBoxLayout(); columns.setSpacing(18); self.responsive_columns=getattr(self,'responsive_columns',[]); self.responsive_columns.append(columns)
         left=QWidget(); left_layout=QVBoxLayout(left); left_layout.setContentsMargins(0,0,0,0); left_layout.setSpacing(14)
         source_frame,source_layout=card(eyebrow='Sumber')
@@ -230,7 +252,6 @@ class DesktopLayout:
         self.review_panel=ReviewPanel(); self.review_panel.save_requested.connect(self.save_review_entry); self.review_panel.revert_requested.connect(self.revert_review_entry)
         self.review_panel.step_requested.connect(self.step_review); translation_layout.addWidget(self.review_panel); left_layout.addWidget(translation_frame,1)
         actions=QHBoxLayout(); actions.addWidget(icon_label('info','#8a928d',16)); self.patch_hint=label('Pilih file sesuai bahasa sumber.','small'); actions.addWidget(self.patch_hint,1)
-        self.install_button=button('Pasang patch',self.install,True,icon='download'); self.install_button.setEnabled(False); actions.addWidget(self.install_button); left_layout.addLayout(actions)
         # Scroll the work column on short windows instead of squeezing the table and editor together.
         self.preview.setMinimumHeight(220); left.setMinimumHeight(780); left.setObjectName('sidebarBody')
         left_scroll=QScrollArea(); left_scroll.setObjectName('sidebarScroll'); left_scroll.setWidgetResizable(True); left_scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -248,7 +269,8 @@ class DesktopLayout:
         self.diagnostic_button=button('Ekspor diagnostik',self.export_diagnostic,icon='download'); self.diagnostic_button.setEnabled(False); support_layout.addWidget(self.diagnostic_button)
         self.analysis_button=button('Analisis mendalam',lambda:self.folder.text() and self.run_deep_analysis(self.folder.text()),icon='sparkles'); self.analysis_button.setToolTip('Cari di mana game menyimpan teks Inggris, termasuk di dalam arsip.'); support_layout.addWidget(self.analysis_button)
         right_layout.addWidget(support_frame); right_layout.addStretch(); right_scroll=self.sidebar_scroll(right,right_layout); self.responsive_sidebars=getattr(self,'responsive_sidebars',[]); self.responsive_sidebars.append(right_scroll); columns.addWidget(right_scroll)
-        layout.addLayout(columns,1)
+        self.patch_columns=columns; self.patch_work_scrolls=[left_scroll,right_scroll]
+        layout.addLayout(columns,1); layout.addLayout(actions)
 
     def build_ocr(self):
         layout=self.page('Overlay OCR','Terjemahkan subtitle yang terlihat di layar sambil tetap berada di dalam game.','scan')
