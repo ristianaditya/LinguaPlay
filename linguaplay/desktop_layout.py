@@ -98,6 +98,8 @@ class DesktopLayout:
         narrow=self.width()<1080
         if hasattr(self,'settings_columns'):
             self._set_column_direction(self.settings_columns,compact)
+            self.settings_form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows if compact else QFormLayout.RowWrapPolicy.DontWrapRows)
+            self.settings_form.setVerticalSpacing(8 if compact else 14)
             if compact:
                 self.settings_help_frame.setMinimumWidth(0)
                 self.settings_help_frame.setMaximumWidth(16777215)
@@ -284,8 +286,10 @@ class DesktopLayout:
 
     def build_settings(self):
         layout=self.page('Layanan terjemahan','Hubungkan model lokal atau API Anda, lalu tentukan bahasa terjemahan.','sliders')
-        columns=QHBoxLayout(); columns.setSpacing(18); self.settings_columns=columns
+        content=QWidget(); content.setMinimumWidth(0)
+        columns=QHBoxLayout(content); columns.setContentsMargins(0,0,0,0); columns.setSpacing(18); self.settings_columns=columns
         settings_frame,settings_layout=card('Koneksi dan bahasa','cpu'); form=QFormLayout(); form.setVerticalSpacing(14); form.setHorizontalSpacing(20)
+        self.settings_form=form; form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         self.provider=QComboBox(); self.provider.addItems(['OpenAI compatible','LibreTranslate','OPUS-MT lokal']); form.addRow('Provider',self.provider)
         self.provider.setCurrentText('OPUS-MT lokal')
         self.endpoint=QLineEdit('http://localhost:11434/v1'); form.addRow('Endpoint',self.endpoint)
@@ -294,6 +298,9 @@ class DesktopLayout:
         self.source=QComboBox(); self.target=QComboBox()
         for combo in (self.source,self.target): combo.setEditable(True); combo.addItems(['en','id','ja','ko','zh','de','fr','es','pt','ru','ar','th'])
         self.target.setCurrentText('id'); form.addRow('Bahasa sumber',self.source); form.addRow('Bahasa tujuan',self.target); settings_layout.addLayout(form)
+        for field in (self.provider,self.endpoint,self.model,self.key,self.source,self.target):
+            field.setMinimumWidth(0)
+            field.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Fixed)
         actions=QHBoxLayout(); actions.setSpacing(8); self.test_button=button('Uji koneksi',self.test_connection,True,icon='zap'); self.save_button=button('Simpan pengaturan',self.save_settings,icon='check')
         actions.addWidget(self.test_button); actions.addWidget(self.save_button); actions.addStretch(); settings_layout.addLayout(actions)
         self.connection_status=StatusLabel('Layanan belum diuji.'); settings_layout.addWidget(self.connection_status)
@@ -303,7 +310,10 @@ class DesktopLayout:
                                 ('Layanan lainnya','Ollama: http://localhost:11434/v1\nLibreTranslate: http://localhost:5000\nCloud: gunakan endpoint HTTPS Anda.','small'),
                                 ('Privasi dan biaya','OPUS-MT memproses teks di PC ini. Provider API mengirim teks ke endpoint pilihan Anda. Kunci hanya disimpan di memori; biaya mengikuti penyedia.','small')]:
             help_layout.addWidget(label(title.upper(),'eyebrow')); help_layout.addWidget(label(text,kind)); help_layout.addSpacing(4)
-        help_layout.addStretch(); columns.addWidget(help_frame); layout.addLayout(columns,1)
+        help_layout.addStretch(); columns.addWidget(help_frame)
+        scroll=QScrollArea(); scroll.setObjectName('settingsScroll'); scroll.setWidgetResizable(True); scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff); scroll.setWidget(content)
+        layout.addWidget(scroll,1); self.settings_scroll=scroll
         self._apply_responsive_layout()
 
     def bind_dashboard(self):
