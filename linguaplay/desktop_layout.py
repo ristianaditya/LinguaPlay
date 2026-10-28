@@ -117,6 +117,13 @@ class DesktopLayout:
                     inner_scroll.setMinimumHeight(0)
             self._set_column_direction(self.patch_columns,compact)
             self._set_column_direction(self.patch_header,compact)
+        if hasattr(self,'ocr_page_scroll'):
+            self.ocr_inner_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff if compact else Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            if compact:
+                child=self.ocr_inner_scroll.widget()
+                self.ocr_inner_scroll.setMinimumHeight(max(child.minimumHeight(),child.minimumSizeHint().height(),child.sizeHint().height()))
+            else:
+                self.ocr_inner_scroll.setMinimumHeight(0)
         for columns in getattr(self,'responsive_columns',[]):
             self._set_column_direction(columns,compact)
         for scroll in getattr(self,'responsive_sidebars',[]):
@@ -274,7 +281,7 @@ class DesktopLayout:
 
     def build_ocr(self):
         layout=self.page('Overlay OCR','Terjemahkan subtitle yang terlihat di layar sambil tetap berada di dalam game.','scan')
-        columns=QHBoxLayout(); columns.setSpacing(18); self.responsive_columns=getattr(self,'responsive_columns',[]); self.responsive_columns.append(columns)
+        content=QWidget(); content.setObjectName('ocrPageContent'); columns=QHBoxLayout(content); columns.setContentsMargins(0,0,0,0); columns.setSpacing(18); self.responsive_columns=getattr(self,'responsive_columns',[]); self.responsive_columns.append(columns)
         left=QWidget(); left_layout=QVBoxLayout(left); left_layout.setContentsMargins(0,0,0,0); left_layout.setSpacing(14)
         capture_frame,capture_layout=card('Pembacaan layar','scan')
         self.ocr_language=QComboBox(); self.ocr_language.setMinimumWidth(150)
@@ -297,14 +304,23 @@ class DesktopLayout:
         tips_layout.addWidget(button('Ubah pintasan',lambda:self.navigate(3),icon='keyboard'))
         right_layout.addWidget(tips)
         privacy,privacy_layout=card('Pemrosesan subtitle','shield'); privacy_layout.addWidget(label('Gambar dibaca lokal oleh Windows OCR. OPUS-MT menerjemahkan teks di PC; provider API mengirim teks ke endpoint pilihan Anda. Tidak ada pemrosesan audio.','small')); right_layout.addWidget(privacy); right_layout.addStretch()
-        right_scroll=self.sidebar_scroll(right,right_layout); self.responsive_sidebars=getattr(self,'responsive_sidebars',[]); self.responsive_sidebars.append(right_scroll); columns.addWidget(right_scroll); layout.addLayout(columns,1)
-
+        right_scroll=self.sidebar_scroll(right,right_layout); self.responsive_sidebars=getattr(self,'responsive_sidebars',[]); self.responsive_sidebars.append(right_scroll); columns.addWidget(right_scroll); self.ocr_inner_scroll=right_scroll
+        page_scroll=QScrollArea(); page_scroll.setObjectName('ocrPageScroll'); page_scroll.setWidgetResizable(True); page_scroll.setFrameShape(QFrame.Shape.NoFrame); page_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        page_scroll.setStyleSheet('QScrollArea#ocrPageScroll { background: transparent; border: none; }'); page_scroll.viewport().setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground); page_scroll.viewport().setAutoFillBackground(False)
+        content.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground); content.setAutoFillBackground(False); content.setStyleSheet('QWidget#ocrPageContent { background: transparent; }')
+        page_scroll.setWidget(content); layout.addWidget(page_scroll,1); self.ocr_page_scroll=page_scroll
+    
     def build_history(self):
         layout=self.page('Cadangan dan pemulihan','Kembalikan file game ke kondisi sebelum patch dipasang.','history')
-        layout.addWidget(label('Tutup game sebelum memulihkan. File yang berubah akibat update game atau mod lain tidak akan ditimpa.','notice'))
+        content=QWidget(); content.setObjectName('historyPageContent'); inner=QVBoxLayout(content); inner.setContentsMargins(0,0,0,0); inner.setSpacing(14)
+        inner.addWidget(label('Tutup game sebelum memulihkan. File yang berubah akibat update game atau mod lain tidak akan ditimpa.','notice'))
         frame,inside=card('Riwayat patch','shield'); self.history=EmptyList('Belum ada cadangan.\nCadangan dibuat saat Anda menyiapkan patch subtitle.'); self.history.setMinimumHeight(300); inside.addWidget(self.history,1)
         line=QHBoxLayout(); line.setSpacing(8); self.restore_button=button('Pulihkan pilihan',self.restore,True,icon='history'); self.open_patch_button=button('Buka folder patch',self.open_patch_folder,icon='folder')
-        line.addWidget(self.restore_button); line.addWidget(self.open_patch_button); line.addStretch(); line.addWidget(button('Segarkan',self.refresh_history,icon='refresh')); inside.addLayout(line); layout.addWidget(frame,1)
+        line.addWidget(self.restore_button); line.addWidget(self.open_patch_button); line.addStretch(); line.addWidget(button('Segarkan',self.refresh_history,icon='refresh')); inside.addLayout(line); inner.addWidget(frame,1)
+        page_scroll=QScrollArea(); page_scroll.setObjectName('historyPageScroll'); page_scroll.setWidgetResizable(True); page_scroll.setFrameShape(QFrame.Shape.NoFrame); page_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        page_scroll.setStyleSheet('QScrollArea#historyPageScroll { background: transparent; border: none; }'); page_scroll.viewport().setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground); page_scroll.viewport().setAutoFillBackground(False)
+        content.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground); content.setAutoFillBackground(False); content.setStyleSheet('QWidget#historyPageContent { background: transparent; }')
+        page_scroll.setWidget(content); layout.addWidget(page_scroll,1); self.history_page_scroll=page_scroll
 
     def build_settings(self):
         layout=self.page('Layanan terjemahan','Hubungkan model lokal atau API Anda, lalu tentukan bahasa terjemahan.','sliders')
