@@ -138,7 +138,7 @@ class LibraryUI:
         empty.addWidget(label('MULAI DALAM 3 LANGKAH','eyebrow'))
         steps=QHBoxLayout(); steps.setSpacing(14)
         for number,heading_text,detail,action in [('1','Tambah game','Pilih EXE game atau deteksi dari Steam.',button('Tambah game',self.add_library_game,kind='pill',icon='plus')),
-                                                 ('2','Siapkan terjemahan','Pindai subtitle lalu terjemahkan offline.',button('Coba contoh',self.open_library_demo,icon='sparkles')),
+                                                 ('2','Siapkan terjemahan','Pindai subtitle lalu terjemahkan offline.',button('Pindai subtitle',self.prepare_library_game,icon='scan')),
                                                  ('3','Main dengan subtitle','Tekan Play atau pakai overlay OCR.',button('Overlay OCR',lambda:self.navigate(1),icon='scan'))]:
             step=QFrame(); step.setObjectName('stepCard'); inside=QVBoxLayout(step); inside.setContentsMargins(20,18,20,18); inside.setSpacing(8)
             top=QHBoxLayout(); badge=label(number,'stepNumber'); badge.setFixedSize(26,26); badge.setAlignment(Qt.AlignmentFlag.AlignCenter); top.addWidget(badge); top.addWidget(label(heading_text,'stepTitle'),1); inside.addLayout(top)
@@ -288,9 +288,6 @@ class LibraryUI:
     def analyze_library_game(self):
         game=self.current_library_game()
         if game: self.run_deep_analysis(game['root'],game['name'])
-
-    def open_library_demo(self):
-        self.navigate(0); self.open_demo()
 
     def open_library_folder(self):
         game=self.current_library_game()

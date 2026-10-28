@@ -117,15 +117,6 @@ class MainWindow(LibraryUI,DesktopLayout,QMainWindow):
         path=QFileDialog.getExistingDirectory(self,'Pilih folder game')
         if path: self.folder.setText(path); self.scan()
 
-    def open_demo(self):
-        base=Path(getattr(sys,'_MEIPASS',Path(__file__).resolve().parent.parent))/'examples'
-        # Copy samples to a writable sandbox, never patch bundled installation assets.
-        import shutil
-        target=self.data/'contoh-game'; target.mkdir(exist_ok=True)
-        for path in base.glob('*'):
-            if path.is_file() and not (target/path.name).exists(): shutil.copy2(path,target/path.name)
-        self.folder.setText(str(target)); self.scan()
-
     def scan(self):
         if not self.folder.text(): self.status.setText('Pilih folder terlebih dahulu.'); return
         self.report=None; self.prepared=None; self.translations={}; self.machine={}; self.patch_dirty=False
