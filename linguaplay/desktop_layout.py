@@ -5,7 +5,7 @@ import sys
 from PySide6.QtGui import QPixmap, QKeySequence, QShortcut
 from PySide6.QtWidgets import QKeySequenceEdit, QCheckBox
 from .hotkeys import LABELS as HOTKEY_LABELS
-from PySide6.QtWidgets import (QWidget,QFrame,QHBoxLayout,QVBoxLayout,QStackedWidget,QLabel,
+from PySide6.QtWidgets import (QWidget,QFrame,QHBoxLayout,QVBoxLayout,QBoxLayout,QStackedWidget,QLabel,
     QLineEdit,QComboBox,QListWidget,QPlainTextEdit,QFormLayout,QHeaderView,QSizePolicy,QScrollArea,QLayout,QAbstractItemView)
 from .desktop_widgets import (label,button,card,row,icon_label,DataTable,OverlayPreview,LanguageCombo,LANGUAGES,EmptyList,
     Spinner,ActivityBar,StatusLabel,ReviewPanel,Backdrop,fade_in,ACCENT)
@@ -45,11 +45,12 @@ class DesktopLayout:
         side.addSpacing(12); side.addWidget(self.local_status); side.addSpacing(4); side.addWidget(label('LinguaPlay 0.7','version'))
         outer.addWidget(rail)
         body=QWidget(); body.setObjectName('body'); layout=QVBoxLayout(body)
-        layout.setContentsMargins(30,18,30,14); layout.setSpacing(18)
+        layout.setContentsMargins(30,18,30,14); layout.setSpacing(18); self.body_layout=layout
         toolbar=QHBoxLayout(); toolbar.setSpacing(10)
         self.back_button=button('Kembali',self.go_back,icon='arrow-left'); self.back_button.setToolTip('Kembali ke halaman sebelumnya (Alt+←)'); self.back_button.hide(); toolbar.addWidget(self.back_button)
         self.location_label=label('LIBRARY GAME','breadcrumb'); toolbar.addWidget(self.location_label,1)
-        toolbar.addWidget(button('Tampilan overlay',self.toggle_overlay_settings,icon='layers')); toolbar.addWidget(self.hotkey_badge('overlay')); layout.addLayout(toolbar)
+        self.overlay_toolbar_button=button('Tampilan overlay',self.toggle_overlay_settings,icon='layers'); toolbar.addWidget(self.overlay_toolbar_button)
+        self.toolbar_overlay_badge=self.hotkey_badge('overlay'); toolbar.addWidget(self.toolbar_overlay_badge); self.toolbar=toolbar; layout.addLayout(toolbar)
         layout.addWidget(self.pages,1)
         self.progress=ActivityBar(); self.progress.setRange(0,1); self.progress.setValue(0); layout.addWidget(self.progress)
         bottom=QHBoxLayout(); bottom.setSpacing(10); self.spinner=Spinner(16); bottom.addWidget(self.spinner)
@@ -75,6 +76,47 @@ class DesktopLayout:
     def mousePressEvent(self,event):
         if event.button()==Qt.MouseButton.BackButton: self.go_back(); event.accept(); return
         super().mousePressEvent(event)
+
+    def resizeEvent(self,event):
+        """Adapt multi-column pages when the desktop window becomes narrow."""
+        super().resizeEvent(event)
+        self._apply_responsive_layout()
+
+    @staticmethod
+    def _set_column_direction(layout, vertical):
+        direction=QBoxLayout.Direction.TopToBottom if vertical else QBoxLayout.Direction.LeftToRight
+        if layout.direction()!=direction:
+            layout.setDirection(direction)
+        if vertical:
+            layout.setStretch(0,1); layout.setStretch(1,1)
+
+    def _apply_responsive_layout(self):
+        compact=self.width()<1260
+        narrow=self.width()<1020
+        if hasattr(self,'settings_columns'):
+            self._set_column_direction(self.settings_columns,compact)
+            if compact:
+                self.settings_help_frame.setMinimumWidth(0)
+                self.settings_help_frame.setMaximumWidth(16777215)
+                self.settings_help_frame.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Preferred)
+            else:
+                self.settings_help_frame.setFixedWidth(304)
+                self.settings_columns.setStretch(0,1); self.settings_columns.setStretch(1,0)
+        for columns in getattr(self,'responsive_columns',[]):
+            self._set_column_direction(columns,compact)
+        for scroll in getattr(self,'responsive_sidebars',[]):
+            if compact:
+                scroll.setMinimumWidth(0)
+                scroll.setMaximumWidth(16777215)
+                scroll.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Preferred)
+            else:
+                scroll.setFixedWidth(304)
+        if hasattr(self,'rail'):
+            self.rail.setFixedWidth(184 if narrow else 224)
+        if hasattr(self,'toolbar_overlay_badge'):
+            self.toolbar_overlay_badge.setVisible(not narrow)
+        if hasattr(self,'body_layout'):
+            self.body_layout.setContentsMargins(16 if narrow else 30,14 if narrow else 18,16 if narrow else 30,12 if narrow else 14)
 
     def navigate(self,index,record=True):
         changed=self.pages.currentIndex()!=index
@@ -132,7 +174,8 @@ class DesktopLayout:
         widget.setObjectName('sidebarBody')
         scroll=QScrollArea(); scroll.setObjectName('sidebarScroll'); scroll.setWidgetResizable(True); scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setFixedWidth(304); scroll.setWidget(widget); return scroll
+        scroll.setMinimumWidth(0); scroll.setMaximumWidth(304); scroll.setSizePolicy(QSizePolicy.Policy.Preferred,QSizePolicy.Policy.Preferred)
+        scroll.setProperty('responsiveSidebar',True); scroll.setWidget(widget); return scroll
 
     def build_patch(self):
         page=QWidget(); layout=QVBoxLayout(page); layout.setContentsMargins(0,0,0,0); layout.setSpacing(16); self.pages.addWidget(page)
@@ -145,7 +188,8 @@ class DesktopLayout:
         self.choose_button=button('Pilih folder',self.choose_folder,icon='folder')
         self.translate_button=button('Terjemahkan pilihan',self.translate,True,icon='zap'); self.translate_button.setEnabled(False)
         header.addWidget(self.choose_button); header.addWidget(self.translate_button); layout.addLayout(header)
-        columns=QHBoxLayout(); columns.setSpacing(18); left=QWidget(); left_layout=QVBoxLayout(left); left_layout.setContentsMargins(0,0,0,0); left_layout.setSpacing(14)
+        columns=QHBoxLayout(); columns.setSpacing(18); self.responsive_columns=getattr(self,'responsive_columns',[]); self.responsive_columns.append(columns)
+        left=QWidget(); left_layout=QVBoxLayout(left); left_layout.setContentsMargins(0,0,0,0); left_layout.setSpacing(14)
         source_frame,source_layout=card(eyebrow='Sumber')
         path_row=QHBoxLayout(); path_row.setSpacing(8)
         self.folder=QLineEdit(); self.folder.setReadOnly(True); self.folder.setPlaceholderText('Pilih folder instalasi game untuk memulai')
@@ -198,12 +242,13 @@ class DesktopLayout:
         self.notice=label('Uncharted: The Nathan Drake Collection: subtitle dialog dan teks in-game (menu, HUD, petunjuk tombol, objektif, item). Gunakan OCR jika format belum dikenali.','small'); support_layout.addWidget(self.notice)
         self.diagnostic_button=button('Ekspor diagnostik',self.export_diagnostic,icon='download'); self.diagnostic_button.setEnabled(False); support_layout.addWidget(self.diagnostic_button)
         self.analysis_button=button('Analisis mendalam',lambda:self.folder.text() and self.run_deep_analysis(self.folder.text()),icon='sparkles'); self.analysis_button.setToolTip('Cari di mana game menyimpan teks Inggris, termasuk di dalam arsip.'); support_layout.addWidget(self.analysis_button)
-        right_layout.addWidget(support_frame); right_layout.addStretch(); columns.addWidget(self.sidebar_scroll(right,right_layout))
+        right_layout.addWidget(support_frame); right_layout.addStretch(); right_scroll=self.sidebar_scroll(right,right_layout); self.responsive_sidebars=getattr(self,'responsive_sidebars',[]); self.responsive_sidebars.append(right_scroll); columns.addWidget(right_scroll)
         layout.addLayout(columns,1)
 
     def build_ocr(self):
         layout=self.page('Overlay OCR','Terjemahkan subtitle yang terlihat di layar sambil tetap berada di dalam game.','scan')
-        columns=QHBoxLayout(); columns.setSpacing(18); left=QWidget(); left_layout=QVBoxLayout(left); left_layout.setContentsMargins(0,0,0,0); left_layout.setSpacing(14)
+        columns=QHBoxLayout(); columns.setSpacing(18); self.responsive_columns=getattr(self,'responsive_columns',[]); self.responsive_columns.append(columns)
+        left=QWidget(); left_layout=QVBoxLayout(left); left_layout.setContentsMargins(0,0,0,0); left_layout.setSpacing(14)
         capture_frame,capture_layout=card('Pembacaan layar','scan')
         self.ocr_language=QComboBox(); self.ocr_language.setMinimumWidth(150)
         try: languages=available_languages()
@@ -225,7 +270,7 @@ class DesktopLayout:
         tips_layout.addWidget(button('Ubah pintasan',lambda:self.navigate(3),icon='keyboard'))
         right_layout.addWidget(tips)
         privacy,privacy_layout=card('Pemrosesan subtitle','shield'); privacy_layout.addWidget(label('Gambar dibaca lokal oleh Windows OCR. OPUS-MT menerjemahkan teks di PC; provider API mengirim teks ke endpoint pilihan Anda. Tidak ada pemrosesan audio.','small')); right_layout.addWidget(privacy); right_layout.addStretch()
-        columns.addWidget(self.sidebar_scroll(right,right_layout)); layout.addLayout(columns,1)
+        right_scroll=self.sidebar_scroll(right,right_layout); self.responsive_sidebars=getattr(self,'responsive_sidebars',[]); self.responsive_sidebars.append(right_scroll); columns.addWidget(right_scroll); layout.addLayout(columns,1)
 
     def build_history(self):
         layout=self.page('Cadangan dan pemulihan','Kembalikan file game ke kondisi sebelum patch dipasang.','history')
@@ -236,7 +281,7 @@ class DesktopLayout:
 
     def build_settings(self):
         layout=self.page('Layanan terjemahan','Hubungkan model lokal atau API Anda, lalu tentukan bahasa terjemahan.','sliders')
-        columns=QHBoxLayout(); columns.setSpacing(18)
+        columns=QHBoxLayout(); columns.setSpacing(18); self.settings_columns=columns
         settings_frame,settings_layout=card('Koneksi dan bahasa','cpu'); form=QFormLayout(); form.setVerticalSpacing(14); form.setHorizontalSpacing(20)
         self.provider=QComboBox(); self.provider.addItems(['OpenAI compatible','LibreTranslate','OPUS-MT lokal']); form.addRow('Provider',self.provider)
         self.provider.setCurrentText('OPUS-MT lokal')
@@ -250,12 +295,13 @@ class DesktopLayout:
         actions.addWidget(self.test_button); actions.addWidget(self.save_button); actions.addStretch(); settings_layout.addLayout(actions)
         self.connection_status=StatusLabel('Layanan belum diuji.'); settings_layout.addWidget(self.connection_status)
         main_column=QVBoxLayout(); main_column.setSpacing(14); main_column.addWidget(settings_frame); main_column.addWidget(self.build_hotkey_card()); main_column.addStretch(); columns.addLayout(main_column,1)
-        help_frame,help_layout=card('Sebelum mulai','info'); help_frame.setFixedWidth(304)
+        help_frame,help_layout=card('Sebelum mulai','info'); self.settings_help_frame=help_frame; help_frame.setFixedWidth(304)
         for title,text,kind in [('OPUS-MT lokal','Model Inggris → Indonesia disertakan dalam paket lengkap. Berjalan offline pada CPU, tanpa endpoint, kunci API, atau Ollama. Bahasa lain belum didukung oleh model ini.','muted'),
                                 ('Layanan lainnya','Ollama: http://localhost:11434/v1\nLibreTranslate: http://localhost:5000\nCloud: gunakan endpoint HTTPS Anda.','small'),
                                 ('Privasi dan biaya','OPUS-MT memproses teks di PC ini. Provider API mengirim teks ke endpoint pilihan Anda. Kunci hanya disimpan di memori; biaya mengikuti penyedia.','small')]:
             help_layout.addWidget(label(title.upper(),'eyebrow')); help_layout.addWidget(label(text,kind)); help_layout.addSpacing(4)
         help_layout.addStretch(); columns.addWidget(help_frame); layout.addLayout(columns,1)
+        self._apply_responsive_layout()
 
     def bind_dashboard(self):
         self.quick_source.set_code(self.source.currentText()); self.quick_target.set_code(self.target.currentText())

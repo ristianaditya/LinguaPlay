@@ -57,6 +57,22 @@ class DesktopFlowTests(unittest.TestCase):
             self.assertNotIn('offline',restored.findChild(QLabel,'localStatus').text().lower())
             restored.close()
 
+    def test_responsive_pages_stack_sidebars_on_narrow_windows(self):
+        from PySide6.QtWidgets import QBoxLayout
+        with tempfile.TemporaryDirectory() as directory:
+            window=MainWindow(Path(directory)); window.show(); self.app.processEvents()
+            window.navigate(3,record=False); window.resize(980,700); self.app.processEvents()
+            self.assertEqual(window.settings_columns.direction(),QBoxLayout.Direction.TopToBottom)
+            self.assertGreater(window.settings_help_frame.width(),304)
+            self.assertEqual(window.rail.width(),184)
+            window.navigate(0,record=False); self.app.processEvents()
+            self.assertEqual(window.responsive_columns[0].direction(),QBoxLayout.Direction.TopToBottom)
+            window.resize(1400,900); self.app.processEvents()
+            self.assertEqual(window.settings_columns.direction(),QBoxLayout.Direction.LeftToRight)
+            self.assertEqual(window.settings_help_frame.width(),304)
+            self.assertEqual(window.rail.width(),224)
+            window.close(); self.app.processEvents()
+
     @classmethod
     def setUpClass(cls):
         cls.app=QApplication.instance() or QApplication([])

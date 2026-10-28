@@ -48,7 +48,7 @@ class MainWindow(LibraryUI,DesktopLayout,QMainWindow):
         try: self.ui_prefs=json.loads((self.data/'ui-settings.json').read_text(encoding='utf-8'))
         except (OSError,ValueError): self.ui_prefs={}
         if not isinstance(self.ui_prefs,dict): self.ui_prefs={}
-        self.setWindowTitle('LinguaPlay • Library game'); self.resize(1400,900); self.setMinimumSize(1180,780)
+        self.setWindowTitle('LinguaPlay • Library game'); self.resize(1400,900); self.setMinimumSize(920,680)
         icon=Path(getattr(sys,'_MEIPASS',Path(__file__).resolve().parent.parent))/'assets'/'app.ico'
         if icon.is_file(): self.setWindowIcon(QIcon(str(icon)))
         self.build_shell()
