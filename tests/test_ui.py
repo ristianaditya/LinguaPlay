@@ -61,13 +61,13 @@ class DesktopFlowTests(unittest.TestCase):
         from PySide6.QtWidgets import QBoxLayout
         with tempfile.TemporaryDirectory() as directory:
             window=MainWindow(Path(directory)); window.show(); self.app.processEvents()
-            window.navigate(3,record=False); window.resize(980,700); self.app.processEvents()
+            window.navigate(3,record=False); window.resize(1267,700); self.app.processEvents()
             self.assertEqual(window.settings_columns.direction(),QBoxLayout.Direction.TopToBottom)
             self.assertGreater(window.settings_help_frame.width(),304)
-            self.assertEqual(window.rail.width(),184)
+            self.assertEqual(window.rail.width(),224)
             window.navigate(0,record=False); self.app.processEvents()
             self.assertEqual(window.responsive_columns[0].direction(),QBoxLayout.Direction.TopToBottom)
-            window.resize(1400,900); self.app.processEvents()
+            window.resize(1500,900); self.app.processEvents()
             self.assertEqual(window.settings_columns.direction(),QBoxLayout.Direction.LeftToRight)
             self.assertEqual(window.settings_help_frame.width(),304)
             self.assertEqual(window.rail.width(),224)

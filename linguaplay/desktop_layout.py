@@ -91,8 +91,11 @@ class DesktopLayout:
             layout.setStretch(0,1); layout.setStretch(1,1)
 
     def _apply_responsive_layout(self):
-        compact=self.width()<1260
-        narrow=self.width()<1020
+        # A 1260–1366px laptop window cannot fit the rail, main form and
+        # 304px help card side by side. Stack the secondary card before it
+        # reaches the screen edge.
+        compact=self.width()<1450
+        narrow=self.width()<1080
         if hasattr(self,'settings_columns'):
             self._set_column_direction(self.settings_columns,compact)
             if compact:
