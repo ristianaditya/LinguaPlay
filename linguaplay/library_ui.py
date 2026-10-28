@@ -8,7 +8,7 @@ from PySide6.QtCore import Qt,QSize,QRectF,QUrl,QFileInfo
 from PySide6.QtGui import QPixmap,QPainter,QColor,QLinearGradient,QRadialGradient,QFont,QIcon,QDesktopServices,QPainterPath,QFontMetrics
 from PySide6.QtWidgets import (QWidget,QFrame,QVBoxLayout,QHBoxLayout,QGridLayout,QLabel,QLineEdit,
     QComboBox,QListWidget,QListWidgetItem,QAbstractItemView,QFileDialog,QFileIconProvider,
-    QDialog,QDialogButtonBox,QFormLayout,QPushButton)
+    QDialog,QDialogButtonBox,QFormLayout,QPushButton,QScrollArea,QSizePolicy)
 from .desktop_widgets import label,button,icon_label,SegmentedToggle,ACCENT
 from .icons import icon as make_icon, pixmap as icon_pixmap
 from .launchers import discover_other,discover_folder,SOURCES,LAUNCH_SCHEMES
@@ -119,7 +119,8 @@ class GameEditor(QDialog):
 class LibraryUI:
     def build_library(self):
         self.library=GameLibrary(self.data); self.selected_game_id=None
-        page=QWidget(); layout=QVBoxLayout(page); layout.setContentsMargins(0,0,0,0); layout.setSpacing(20); self.pages.addWidget(page)
+        page=QWidget(); page_layout=QVBoxLayout(page); page_layout.setContentsMargins(0,0,0,0); page_layout.setSpacing(0); self.pages.addWidget(page)
+        content=QWidget(); content.setObjectName('libraryPageContent'); layout=QVBoxLayout(content); layout.setContentsMargins(0,0,0,0); layout.setSpacing(20)
         intro=QWidget(); hero=QHBoxLayout(intro); hero.setContentsMargins(0,4,0,4); hero.setSpacing(10)
         title=QVBoxLayout(); title.setSpacing(4); title.addWidget(label('Library game','libraryHeading')); title.addWidget(label('Pilih game, atur terjemahan, lalu mainkan.','muted')); hero.addLayout(title,1)
         detect=button('Deteksi game',self.detect_library_games,icon='radar'); detect.setToolTip('Steam, Epic Games, GOG, Ubisoft Connect, EA app dan folder Games di setiap drive'); hero.addWidget(detect,0,Qt.AlignmentFlag.AlignBottom)
@@ -137,7 +138,7 @@ class LibraryUI:
         words=QVBoxLayout(); words.setSpacing(6); words.addStretch(); words.addWidget(label('Library Anda dimulai di sini.','emptyTitle')); self.library_empty_text=label('Tambahkan EXE game atau deteksi instalasi Steam.\nGame bisa dimainkan dengan versi asli maupun terjemahan.','muted'); words.addWidget(self.library_empty_text); words.addStretch()
         welcome.addLayout(words,1); empty.addLayout(welcome)
         empty.addWidget(label('MULAI DALAM 3 LANGKAH','eyebrow'))
-        steps=QHBoxLayout(); steps.setSpacing(14)
+        steps=QHBoxLayout(); steps.setSpacing(14); self.library_steps_layout=steps
         for number,heading_text,detail,action in [('1','Tambah game','Pilih EXE game atau deteksi dari Steam.',button('Tambah game',self.add_library_game,kind='pill',icon='plus')),
                                                  ('2','Siapkan terjemahan','Pindai subtitle lalu terjemahkan offline.',button('Pindai subtitle',self.prepare_library_game,icon='scan')),
                                                  ('3','Main dengan subtitle','Tekan Play atau pakai overlay OCR.',button('Overlay OCR',lambda:self.navigate(1),icon='scan'))]:
@@ -147,11 +148,16 @@ class LibraryUI:
         empty.addLayout(steps); empty.addStretch()
         layout.addWidget(self.library_empty,1); layout.addWidget(self.game_grid,1)
         foot=QHBoxLayout(); foot.addWidget(icon_label('info','#7d8681',15)); foot.addWidget(label('Patch mengganti file subtitle yang didukung. Gunakan overlay OCR untuk format game yang belum dikenali.','small'),1); layout.addLayout(foot)
+        page_scroll=QScrollArea(); page_scroll.setObjectName('libraryPageScroll'); page_scroll.setWidgetResizable(True); page_scroll.setFrameShape(QFrame.Shape.NoFrame); page_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        page_scroll.setStyleSheet('QScrollArea#libraryPageScroll { background: transparent; border: none; }'); page_scroll.viewport().setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground); page_scroll.viewport().setAutoFillBackground(False)
+        content.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground); content.setAutoFillBackground(False); content.setStyleSheet('QWidget#libraryPageContent { background: transparent; }')
+        page_scroll.setWidget(content); page_layout.addWidget(page_scroll); self.library_scroll=page_scroll
         self.build_game_detail(); self.refresh_library()
         if self.library.load_warning: self.status.setText(self.library.load_warning)
 
     def build_game_detail(self):
-        page=QWidget(); layout=QVBoxLayout(page); layout.setContentsMargins(0,0,0,0); layout.setSpacing(18); self.pages.addWidget(page)
+        page=QWidget(); page_layout=QVBoxLayout(page); page_layout.setContentsMargins(0,0,0,0); page_layout.setSpacing(0); self.pages.addWidget(page)
+        content=QWidget(); content.setObjectName('gameDetailContent'); layout=QVBoxLayout(content); layout.setContentsMargins(0,0,0,0); layout.setSpacing(18)
         self.detail_hero=GameArtwork(); hero=QVBoxLayout(self.detail_hero); hero.setContentsMargins(30,26,30,26); hero.setSpacing(8)
         chips=QHBoxLayout(); chips.setSpacing(8); self.detail_platform=label('PC GAME','platformChip'); self.detail_platform.setWordWrap(False); chips.addWidget(self.detail_platform)
         self.detail_status=label('Versi asli','gameState'); self.detail_status.setWordWrap(False); chips.addWidget(self.detail_status); chips.addStretch(); hero.addLayout(chips)
@@ -174,8 +180,12 @@ class LibraryUI:
         inside.addWidget(button('Buka folder game',self.open_library_folder,icon='folder')); inside.addStretch()
         inside.addWidget(button('Impor Support Pack',self.import_support_pack,icon='download'))
         inside.addWidget(label('PINTASAN','eyebrow')); key=QHBoxLayout(); badge=self.hotkey_badge('overlay'); key.addWidget(badge); key.addWidget(label('Overlay dalam game','small'),1); inside.addLayout(key)
-        columns.addWidget(info); layout.addLayout(columns,1)
+        columns.addWidget(info); layout.addLayout(columns,1); self.detail_columns=columns; self.detail_info=info
         remove=QHBoxLayout(); remove.addWidget(button('Hapus dari library',self.remove_library_game,icon='trash')); remove.addWidget(label('File game dan cadangan tetap tersimpan.','small'),1); layout.addLayout(remove)
+        page_scroll=QScrollArea(); page_scroll.setObjectName('gameDetailPageScroll'); page_scroll.setWidgetResizable(True); page_scroll.setFrameShape(QFrame.Shape.NoFrame); page_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        page_scroll.setStyleSheet('QScrollArea#gameDetailPageScroll { background: transparent; border: none; }'); page_scroll.viewport().setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground); page_scroll.viewport().setAutoFillBackground(False)
+        content.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground); content.setAutoFillBackground(False); content.setStyleSheet('QWidget#gameDetailContent { background: transparent; }')
+        page_scroll.setWidget(content); page_layout.addWidget(page_scroll); self.game_detail_scroll=page_scroll
 
     def control_group(self,eyebrow,title,icon_name,descriptions,actions):
         frame=QFrame(); frame.setObjectName('controlGroup'); layout=QVBoxLayout(frame); layout.setContentsMargins(20,18,20,18); layout.setSpacing(10)
@@ -197,6 +207,7 @@ class LibraryUI:
         self.library_count.setText(f'{len(self.library.games)} game'); self.game_grid.setVisible(visible>0); self.library_empty.setVisible(visible==0)
         self.library_empty_text.setText('Tidak ada game yang cocok. Ubah pencarian atau filter.' if self.library.games else 'Tambahkan EXE game atau deteksi instalasi Steam.\nGame bisa dimainkan dengan versi asli maupun terjemahan.')
         self.refresh_game_detail()
+        if hasattr(self,'_apply_responsive_layout'): self._apply_responsive_layout()
 
     def current_library_game(self):
         return next((g for g in self.library.games if g['id']==self.selected_game_id),None)

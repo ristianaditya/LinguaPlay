@@ -124,6 +124,23 @@ class DesktopLayout:
                 self.ocr_inner_scroll.setMinimumHeight(max(child.minimumHeight(),child.minimumSizeHint().height(),child.sizeHint().height()))
             else:
                 self.ocr_inner_scroll.setMinimumHeight(0)
+        if hasattr(self,'detail_columns'):
+            self._set_column_direction(self.detail_columns,compact)
+            if compact:
+                self.detail_info.setMinimumWidth(0); self.detail_info.setMaximumWidth(16777215)
+                self.detail_info.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Preferred)
+            else:
+                self.detail_info.setFixedWidth(280)
+        if hasattr(self,'library_steps_layout'):
+            self._set_column_direction(self.library_steps_layout,compact)
+        if hasattr(self,'game_grid'):
+            self.game_grid.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff if compact else Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            if compact:
+                columns=max(1,(self.width()-self.rail.width()-96)//232)
+                rows=(self.game_grid.count()+columns-1)//columns
+                self.game_grid.setMinimumHeight(max(314,rows*314+20))
+            else:
+                self.game_grid.setMinimumHeight(0)
         for columns in getattr(self,'responsive_columns',[]):
             self._set_column_direction(columns,compact)
         for scroll in getattr(self,'responsive_sidebars',[]):
