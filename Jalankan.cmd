@@ -10,7 +10,7 @@ if exist "portable\LinguaPlay\LinguaPlay.exe" (
     start "" "%~dp0portable\LinguaPlay\LinguaPlay.exe"
     exit /b
   )
-  powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "if ((Get-Item '%~dp0portable\LinguaPlay\LinguaPlay.exe').LastWriteTime -ge (Get-Item '%~dp0main.py').LastWriteTime) { exit 0 } else { exit 1 }"
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$src = Get-ChildItem '%~dp0' -Recurse -File -Filter '*.py' | Where-Object { $_.FullName -notmatch '\\portable(\\|$)' } | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if ($src -and ((Get-Item '%~dp0portable\LinguaPlay\LinguaPlay.exe').LastWriteTime -ge $src.LastWriteTime)) { exit 0 } else { exit 1 }"
   if not errorlevel 1 (
     start "" "%~dp0portable\LinguaPlay\LinguaPlay.exe"
     exit /b
