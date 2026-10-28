@@ -55,6 +55,9 @@ class MainWindow(LibraryUI,DesktopLayout,QMainWindow):
         self.build_shell()
         self.build_patch(); self.build_ocr(); self.build_history(); self.build_settings()
         self.build_library(); self.backdrop.set_animated(self.ui_prefs.get('animated_background',True))
+        self._load_ocr_default_language(); self.refresh_ocr_profiles()
+        self.ocr_game_profile.currentIndexChanged.connect(self.load_selected_ocr_profile)
+        self.ocr_language.currentTextChanged.connect(self.save_selected_ocr_language)
         self.bind_dashboard(); self.load_settings(); self.refresh_history(); self.navigate(4,record=False)
         self.hotkey_timer=QTimer(self); self.hotkey_timer.timeout.connect(self.check_hotkey); self.hotkey_timer.start(150)
 
@@ -421,10 +424,64 @@ class MainWindow(LibraryUI,DesktopLayout,QMainWindow):
         except (OSError,ValueError): pass
         return None
 
+    def _load_ocr_default_language(self):
+        self.ocr_default_language=self.ocr_language.currentText()
+        try:
+            value=json.loads((self.data/'ocr-language.json').read_text(encoding='utf-8'))
+            if isinstance(value,str) and value in [self.ocr_language.itemText(i) for i in range(self.ocr_language.count())]:
+                self.ocr_default_language=value
+        except (OSError,ValueError): pass
+        if self.ocr_default_language: self.ocr_language.setCurrentText(self.ocr_default_language)
+
+    def refresh_ocr_profiles(self):
+        if not hasattr(self,'ocr_game_profile') or not hasattr(self,'library'): return
+        selected=self.ocr_game_profile.currentData() if self.ocr_game_profile.count() else None
+        self.ocr_game_profile.blockSignals(True); self.ocr_game_profile.clear()
+        self.ocr_game_profile.addItem('Default umum',None)
+        for game in sorted(self.library.games,key=lambda item:item['name'].casefold()):
+            self.ocr_game_profile.addItem(game['name'],game['id'])
+        index=self.ocr_game_profile.findData(selected)
+        self.ocr_game_profile.setCurrentIndex(max(0,index)); self.ocr_game_profile.blockSignals(False)
+        if self.ocr_game_profile.currentData()!=selected:
+            self.load_selected_ocr_profile()
+
+    def load_selected_ocr_profile(self,*_):
+        if not hasattr(self,'ocr_game_profile') or not hasattr(self,'library'): return
+        identity=self.ocr_game_profile.currentData()
+        self.ocr_region=self.load_ocr_region()
+        language=self.ocr_default_language
+        if identity:
+            profile=self.library.get_profile(identity)
+            value=profile.get('ocr_region')
+            if isinstance(value,list) and len(value)==4 and all(type(n) is int for n in value) and value[2]>=40 and value[3]>=20:
+                self.ocr_region=QRect(*value)
+            if profile.get('ocr_language'): language=profile['ocr_language']
+        self.ocr_language.blockSignals(True)
+        self.ocr_language.setCurrentIndex(self.ocr_language.findText(language) if language else -1)
+        self.ocr_language.blockSignals(False)
+
+    def save_selected_ocr_language(self,language):
+        if not language: return
+        identity=self.ocr_game_profile.currentData() if hasattr(self,'ocr_game_profile') else None
+        if identity and hasattr(self,'library'):
+            profile=self.library.get_profile(identity); profile['ocr_language']=language
+            try: self.library.save_profile(identity,profile)
+            except OSError as exc: self.ocr_status.setText(f'Profil OCR tidak dapat disimpan: {exc}')
+        else:
+            self.ocr_default_language=language
+            try: atomic_write(self.data/'ocr-language.json',json.dumps(language,ensure_ascii=False).encode())
+            except OSError: pass
+
     def remember_ocr_region(self,region):
         self.ocr_region=QRect(region)
-        try: atomic_write(self.data/'ocr-region.json',json.dumps([region.x(),region.y(),region.width(),region.height()]).encode())
-        except OSError: pass
+        identity=self.ocr_game_profile.currentData() if hasattr(self,'ocr_game_profile') else None
+        if identity and hasattr(self,'library'):
+            profile=self.library.get_profile(identity); profile['ocr_region']=[region.x(),region.y(),region.width(),region.height()]
+            try: self.library.save_profile(identity,profile)
+            except OSError as exc: self.ocr_status.setText(f'Profil OCR tidak dapat disimpan: {exc}')
+        else:
+            try: atomic_write(self.data/'ocr-region.json',json.dumps([region.x(),region.y(),region.width(),region.height()]).encode())
+            except OSError: pass
 
     def change_region(self):
         """Pick a new OCR area; a running OCR session keeps going with the new area."""
@@ -466,6 +523,7 @@ class MainWindow(LibraryUI,DesktopLayout,QMainWindow):
         self.ocr_worker.subtitle.connect(self.update_subtitle); self.ocr_worker.status.connect(self.ocr_status.setText)
         self.ocr_worker.failure.connect(self.ocr_failed); self.ocr_worker.finished.connect(self.ocr_finished)
         self.ocr_start.setEnabled(False); self.ocr_stop.setEnabled(True); self.ocr_region_button.setEnabled(True)
+        self.ocr_game_profile.setEnabled(False); self.ocr_language.setEnabled(False)
         self.show(); self.showMinimized(); self.overlay.show(); self.ocr_worker.start()
         self.ocr_status.setText(f"OCR aktif • {self.hotkeys['region']} ubah area • {self.hotkeys['stop']} untuk berhenti")
 
@@ -554,6 +612,7 @@ class MainWindow(LibraryUI,DesktopLayout,QMainWindow):
         if self.overlay: self.overlay.close(); self.overlay=None
         if self.selector and self.selector.isVisible(): self.selector.close()
         self.ocr_start.setEnabled(True); self.ocr_stop.setEnabled(False); self.ocr_region_button.setEnabled(False)
+        self.ocr_game_profile.setEnabled(True); self.ocr_language.setEnabled(True)
         self.ocr_status.setText('OCR berhenti.'); self.showNormal()
         if self.closing: self.close()
 

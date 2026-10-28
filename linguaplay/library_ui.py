@@ -207,6 +207,7 @@ class LibraryUI:
         self.library_count.setText(f'{len(self.library.games)} game'); self.game_grid.setVisible(visible>0); self.library_empty.setVisible(visible==0)
         self.library_empty_text.setText('Tidak ada game yang cocok. Ubah pencarian atau filter.' if self.library.games else 'Tambahkan EXE game atau deteksi instalasi Steam.\nGame bisa dimainkan dengan versi asli maupun terjemahan.')
         self.refresh_game_detail()
+        if hasattr(self,'refresh_ocr_profiles'): self.refresh_ocr_profiles()
         if hasattr(self,'_apply_responsive_layout'): self._apply_responsive_layout()
 
     def current_library_game(self):

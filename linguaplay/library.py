@@ -42,7 +42,7 @@ class GameLibrary:
         if not isinstance(profile,dict): profile={}
         defaults={'source_language':'en','target_language':'id','adapter_id':'','support_level':'unknown',
                   'glossary_path':'','memory_path':'','overlay_profile_id':'default','last_scan':'',
-                  'engine_name':'','anticheat':'','engine_note':''}
+                  'engine_name':'','anticheat':'','engine_note':'','ocr_region':None,'ocr_language':''}
         result=defaults.copy(); result.update({k:v for k,v in profile.items() if k in defaults})
         return result
 

@@ -301,6 +301,8 @@ class DesktopLayout:
         content=QWidget(); content.setObjectName('ocrPageContent'); columns=QHBoxLayout(content); columns.setContentsMargins(0,0,0,0); columns.setSpacing(18); self.responsive_columns=getattr(self,'responsive_columns',[]); self.responsive_columns.append(columns)
         left=QWidget(); left_layout=QVBoxLayout(left); left_layout.setContentsMargins(0,0,0,0); left_layout.setSpacing(14)
         capture_frame,capture_layout=card('Pembacaan layar','scan')
+        self.ocr_game_profile=QComboBox(); self.ocr_game_profile.setMinimumWidth(180)
+        capture_layout.addWidget(row('gamepad','Profil game',self.ocr_game_profile,'Simpan area dan bahasa OCR terpisah untuk tiap game.'))
         self.ocr_language=QComboBox(); self.ocr_language.setMinimumWidth(150)
         try: languages=available_languages()
         except Exception as exc: languages=[]; self.ocr_error=str(exc)
