@@ -6,8 +6,15 @@ if exist "Mulai-Model-Lokal.ps1" (
   if errorlevel 1 goto failed
 )
 if exist "portable\LinguaPlay\LinguaPlay.exe" (
-  start "" "%~dp0portable\LinguaPlay\LinguaPlay.exe"
-  exit /b
+  if not exist "main.py" (
+    start "" "%~dp0portable\LinguaPlay\LinguaPlay.exe"
+    exit /b
+  )
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "if ((Get-Item '%~dp0portable\LinguaPlay\LinguaPlay.exe').LastWriteTime -ge (Get-Item '%~dp0main.py').LastWriteTime) { exit 0 } else { exit 1 }"
+  if not errorlevel 1 (
+    start "" "%~dp0portable\LinguaPlay\LinguaPlay.exe"
+    exit /b
+  )
 )
 if not exist ".venv\Scripts\python.exe" (
   python -m venv .venv
